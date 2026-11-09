@@ -363,7 +363,7 @@ export default function SpeakingPage() {
 
             <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700">
               <p className="font-medium mb-1">💬 How it works</p>
-              <p>Discuss the topic with a conversation partner. The app records your conversation, then uses AI to transcribe and analyze your language skills.</p>
+              <p>Gather around one device with your conversation partners. Place it between you, tap Record, and have a natural conversation. AI will transcribe and analyze everyone&apos;s speaking.</p>
             </div>
 
             <Button
@@ -379,15 +379,26 @@ export default function SpeakingPage() {
 
         {/* Recording screen */}
         {step === "recording" && (
-          <div className="flex flex-col items-center space-y-8">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold mb-2">
-                {isRecording ? "Recording..." : "Ready to Record"}
+          <div className="flex flex-col items-center space-y-7">
+            <div className="text-center space-y-1">
+              <h1 className="text-2xl font-bold">
+                {isRecording ? "Conversation in Progress" : "Get Ready to Speak"}
               </h1>
-              <p className="text-muted-foreground text-sm max-w-sm">
-                Discuss: <span className="font-medium text-foreground">&ldquo;{topic}&rdquo;</span>
+              <p className="text-muted-foreground text-sm">
+                Topic: <span className="font-medium text-foreground">&ldquo;{topic}&rdquo;</span>
               </p>
             </div>
+
+            {/* Setup instruction banner — only shown before recording starts */}
+            {!isRecording && (
+              <div className="w-full p-4 rounded-2xl bg-blue-50 border border-blue-200 flex items-start gap-3 text-sm text-blue-800">
+                <span className="text-xl mt-0.5">📱</span>
+                <div>
+                  <p className="font-semibold mb-0.5">One device, all speakers</p>
+                  <p>Place this device <span className="font-medium">between all speakers</span> so everyone's voice is picked up. When you're ready, tap <span className="font-medium">Start Recording</span>.</p>
+                </div>
+              </div>
+            )}
 
             {/* Character */}
             <RecordingCharacter isRecording={isRecording} />
@@ -409,7 +420,7 @@ export default function SpeakingPage() {
             {isRecording && (
               <div className="flex items-center gap-2 text-red-500">
                 <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-sm font-medium">Recording in progress</span>
+                <span className="text-sm font-medium">Recording — speak naturally!</span>
               </div>
             )}
 
