@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { DEMO_QUIZ } from "@/lib/mockData";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const isDemo = () => process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export async function POST(req: NextRequest) {
+  if (isDemo()) {
+    await new Promise((r) => setTimeout(r, 800));
+    return NextResponse.json(DEMO_QUIZ);
+  }
+
   try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const { transcript, language, level } = await req.json();
 
     const completion = await openai.chat.completions.create({
@@ -17,22 +24,11 @@ export async function POST(req: NextRequest) {
         {
           role: "user",
           content: `Based on this ${language} transcript, create 5 multiple-choice comprehension questions in English.
-Each question should test understanding of the content.
 
 Transcript:
 ${transcript}
 
-Return JSON with this exact shape:
-{
-  "questions": [
-    {
-      "id": 1,
-      "question": "Question text in English",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correctIndex": 0
-    }
-  ]
-}`,
+Return JSON: { "questions": [{ "id": 1, "question": "...", "options": ["A","B","C","D"], "correctIndex": 0 }] }`,
         },
       ],
       response_format: { type: "json_object" },

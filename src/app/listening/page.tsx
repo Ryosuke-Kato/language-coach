@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Headphones, Play, Pause, RotateCcw, ChevronRight, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Headphones, Play, Pause, RotateCcw, ChevronRight, CheckCircle2, XCircle, FlaskConical } from "lucide-react";
+
+const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -197,6 +199,12 @@ export default function ListeningPage() {
         {/* Settings screen */}
         {step === "settings" && (
           <div className="space-y-6">
+            {IS_DEMO && (
+              <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+                <FlaskConical className="w-4 h-4 flex-shrink-0" />
+                <span><span className="font-semibold">Demo mode</span> — pre-written English content loads instantly. Add <code className="bg-amber-100 px-1 rounded">OPENAI_API_KEY</code> to generate real content.</span>
+              </div>
+            )}
             <div>
               <h1 className="text-2xl font-bold mb-1">Set up your session</h1>
               <p className="text-muted-foreground">Choose what you want to practice today.</p>
@@ -321,6 +329,12 @@ export default function ListeningPage() {
             {/* Audio Player */}
             <Card className="overflow-hidden">
               <CardContent className="pt-6 space-y-4">
+                {IS_DEMO && (
+                  <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <FlaskConical className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>Demo mode — the audio plays a silent placeholder. Read the transcript to follow along.</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-4">
                   <button
                     onClick={handleRestart}

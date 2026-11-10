@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { DEMO_TRANSCRIPT } from "@/lib/mockData";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const isDemo = () => process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export async function POST(req: NextRequest) {
+  if (isDemo()) {
+    await new Promise((r) => setTimeout(r, 1500));
+    return NextResponse.json({ transcript: DEMO_TRANSCRIPT });
+  }
+
   try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const formData = await req.formData();
     const audioFile = formData.get("audio") as File;
     const language = formData.get("language") as string;

@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { DEMO_LISTENING } from "@/lib/mockData";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const isDemo = () => process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export async function POST(req: NextRequest) {
+  if (isDemo()) {
+    await new Promise((r) => setTimeout(r, 1200)); // simulate latency
+    return NextResponse.json(DEMO_LISTENING);
+  }
+
   try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const { language, level, topic, contentType } = await req.json();
 
     const wordCounts: Record<string, number> = {
@@ -15,22 +22,18 @@ export async function POST(req: NextRequest) {
     };
     const wordCount = wordCounts[level] ?? 150;
 
-    const systemPrompt = `You are a language learning content creator. Generate natural, engaging ${contentType} transcripts in ${language} for ${level} learners. The content must be clearly about the given topic and appropriate for the learner's level.`;
-
-    const userPrompt = `Create a ${contentType} in ${language} at ${level} level about "${topic}". 
-The transcript should be approximately ${wordCount} words.
-Return JSON with this exact shape:
-{
-  "title": "Short catchy title",
-  "transcript": "The full text in ${language}",
-  "ttsText": "The text optimized for TTS (clean, no stage directions)"
-}`;
-
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
+        {
+          role: "system",
+          content: `You are a language learning content creator. Generate natural, engaging ${contentType} transcripts in ${language} for ${level} learners.`,
+        },
+        {
+          role: "user",
+          content: `Create a ${contentType} in ${language} at ${level} level about "${topic}". Approximately ${wordCount} words.
+Return JSON: { "title": "...", "transcript": "...", "ttsText": "..." }`,
+        },
       ],
       response_format: { type: "json_object" },
       temperature: 0.8,
@@ -38,7 +41,6 @@ Return JSON with this exact shape:
 
     const data = JSON.parse(completion.choices[0].message.content ?? "{}");
 
-    // Generate TTS audio
     const mp3 = await openai.audio.speech.create({
       model: "tts-1",
       voice: "nova",
@@ -47,12 +49,8 @@ Return JSON with this exact shape:
     });
 
     const audioBuffer = Buffer.from(await mp3.arrayBuffer());
-    const audioBase64 = audioBuffer.toString("base64");
-    const audioDataUrl = `data:audio/mpeg;base64,${audioBase64}`;
-
-    // Rough duration estimate: ~130 words/min
-    const wordCount2 = data.transcript.split(/\s+/).length;
-    const duration = Math.ceil((wordCount2 / 130) * 60);
+    const audioDataUrl = `data:audio/mpeg;base64,${audioBuffer.toString("base64")}`;
+    const duration = Math.ceil((data.transcript.split(/\s+/).length / 130) * 60);
 
     return NextResponse.json({
       title: data.title,

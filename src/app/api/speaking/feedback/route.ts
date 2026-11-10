@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { DEMO_FEEDBACK } from "@/lib/mockData";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const isDemo = () => process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export async function POST(req: NextRequest) {
+  if (isDemo()) {
+    await new Promise((r) => setTimeout(r, 1800));
+    return NextResponse.json(DEMO_FEEDBACK);
+  }
+
   try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const { transcript, language, level, topic } = await req.json();
 
     const completion = await openai.chat.completions.create({
@@ -12,59 +19,31 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: "system",
-          content: `You are a professional language coach analyzing a ${language} conversation by ${level} learners. Provide constructive, encouraging feedback that helps learners improve.`,
+          content: `You are a professional language coach analyzing a ${language} conversation by ${level} learners. Provide constructive, encouraging feedback.`,
         },
         {
           role: "user",
-          content: `Analyze this ${language} conversation transcript and provide detailed language learning feedback.
-
-Topic: ${topic}
-Level: ${level}
+          content: `Analyze this ${language} conversation. Topic: ${topic}. Level: ${level}.
 
 Transcript:
 ${transcript}
 
-Return JSON with this exact shape:
+Return JSON:
 {
   "overallScore": 78,
   "summary": "One encouraging summary sentence",
   "points": [
-    {
-      "category": "grammar",
-      "title": "Subject-verb agreement",
-      "detail": "Specific observation with example from the transcript",
-      "positive": true
-    },
-    {
-      "category": "vocabulary",
-      "title": "Good range of expressions",
-      "detail": "Specific observation",
-      "positive": true
-    },
-    {
-      "category": "fluency",
-      "title": "Natural flow",
-      "detail": "Specific observation",
-      "positive": false
-    },
-    {
-      "category": "pronunciation",
-      "title": "Pronunciation tip",
-      "detail": "Specific tip for improvement",
-      "positive": false
-    }
+    { "category": "grammar", "title": "...", "detail": "...", "positive": true },
+    { "category": "vocabulary", "title": "...", "detail": "...", "positive": true },
+    { "category": "fluency", "title": "...", "detail": "...", "positive": false },
+    { "category": "pronunciation", "title": "...", "detail": "...", "positive": false }
   ],
   "quizQuestions": [
-    {
-      "id": 1,
-      "question": "What grammar point appeared most in the conversation?",
-      "options": ["Present tense", "Past tense", "Future tense", "Conditionals"],
-      "correctIndex": 1
-    }
+    { "id": 1, "question": "...", "options": ["A","B","C","D"], "correctIndex": 0 }
   ]
 }
 
-Include 4-6 feedback points and 3 quiz questions about grammar/vocabulary from the conversation.`,
+Include 4-6 feedback points and 3 quiz questions.`,
         },
       ],
       response_format: { type: "json_object" },

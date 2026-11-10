@@ -3,15 +3,15 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Mic,
-  MicOff,
   Square,
   ChevronRight,
   CheckCircle2,
-  XCircle,
   Star,
   RefreshCw,
-  Loader2,
+  FlaskConical,
 } from "lucide-react";
+
+const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -210,6 +210,16 @@ export default function SpeakingPage() {
     stopRecording();
   }
 
+  async function handleDemoRecord() {
+    setIsRecording(true);
+    setElapsed(0);
+    // Simulate a 3-second "recording" then jump straight to processing
+    await new Promise((r) => setTimeout(r, 3000));
+    setIsRecording(false);
+    const dummyBlob = new Blob([], { type: "audio/webm" });
+    await processRecording(dummyBlob);
+  }
+
   function formatTime(s: number) {
     const m = Math.floor(s / 60);
     const sec = s % 60;
@@ -266,10 +276,16 @@ export default function SpeakingPage() {
         {/* Settings screen */}
         {step === "settings" && (
           <div className="space-y-6">
+            {IS_DEMO && (
+              <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+                <FlaskConical className="w-4 h-4 flex-shrink-0" />
+                <span><span className="font-semibold">Demo mode</span> — recording is skipped; a mock transcript &amp; feedback loads automatically. Add <code className="bg-amber-100 px-1 rounded">OPENAI_API_KEY</code> for real analysis.</span>
+              </div>
+            )}
             <div>
               <h1 className="text-2xl font-bold mb-1">Set up your session</h1>
               <p className="text-muted-foreground">
-                Choose a topic and start chatting with a partner. We'll analyze your conversation.
+                Choose a topic and start chatting with a partner. We&apos;ll analyze your conversation.
               </p>
             </div>
 
@@ -426,12 +442,12 @@ export default function SpeakingPage() {
 
             {!isRecording ? (
               <Button
-                onClick={startRecording}
+                onClick={IS_DEMO ? handleDemoRecord : startRecording}
                 size="lg"
                 className="w-full max-w-xs bg-red-500 hover:bg-red-600 text-white"
               >
                 <Mic className="w-5 h-5 mr-2" />
-                Start Recording
+                {IS_DEMO ? "Simulate Recording" : "Start Recording"}
               </Button>
             ) : (
               <Button
