@@ -92,4 +92,42 @@
   html {
     @apply font-sans;
   }
+
+  /* Prevent iOS double-tap zoom on interactive elements */
+  button, a, [role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* Minimum touch target size */
+  button, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Ensure base font size doesn't trigger iOS auto-zoom on inputs */
+  input, textarea, select {
+    font-size: 16px;
+  }
+}
+
+/* Safe area inset utilities for iPhone notch / home indicator */
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .bottom-safe {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
 }

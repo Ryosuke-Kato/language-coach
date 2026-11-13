@@ -213,7 +213,6 @@ export default function SpeakingPage() {
   async function handleDemoRecord() {
     setIsRecording(true);
     setElapsed(0);
-    // Simulate a 3-second "recording" then jump straight to processing
     await new Promise((r) => setTimeout(r, 3000));
     setIsRecording(false);
     const dummyBlob = new Blob([], { type: "audio/webm" });
@@ -260,9 +259,9 @@ export default function SpeakingPage() {
         accentColor="bg-blue-100"
       />
 
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8">
+      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6 sm:py-8">
         {/* Step indicator */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6 sm:mb-8">
           <StepIndicator
             steps={STEPS}
             currentStep={STEP_MAP[step]}
@@ -277,30 +276,30 @@ export default function SpeakingPage() {
         {step === "settings" && (
           <div className="space-y-6">
             {IS_DEMO && (
-              <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
-                <FlaskConical className="w-4 h-4 flex-shrink-0" />
+              <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+                <FlaskConical className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <span><span className="font-semibold">Demo mode</span> — recording is skipped; a mock transcript &amp; feedback loads automatically. Add <code className="bg-amber-100 px-1 rounded">OPENAI_API_KEY</code> for real analysis.</span>
               </div>
             )}
             <div>
               <h1 className="text-2xl font-bold mb-1">Set up your session</h1>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground text-base">
                 Choose a topic and start chatting with a partner. We&apos;ll analyze your conversation.
               </p>
             </div>
 
             <div className="grid gap-5">
-              <div className="space-y-2">
-                <Label>Language you are speaking</Label>
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Language you are speaking</Label>
                 <div className="flex flex-wrap gap-2">
                   {LANGUAGES.map((lang) => (
                     <button
                       key={lang}
                       onClick={() => setSettings((s) => ({ ...s, language: lang }))}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
                         settings.language === lang
                           ? "bg-primary text-primary-foreground"
-                          : "bg-muted hover:bg-accent"
+                          : "bg-muted hover:bg-accent active:bg-accent"
                       }`}
                     >
                       {lang}
@@ -309,17 +308,17 @@ export default function SpeakingPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Your Level</Label>
-                <div className="flex gap-2">
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Your Level</Label>
+                <div className="flex gap-3">
                   {LEVELS.map((l) => (
                     <button
                       key={l}
                       onClick={() => setLevel(l)}
-                      className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                      className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-colors min-h-[52px] ${
                         level === l
                           ? "bg-blue-400 text-white"
-                          : "bg-muted hover:bg-accent"
+                          : "bg-muted hover:bg-accent active:bg-accent"
                       }`}
                     >
                       {l}
@@ -328,17 +327,17 @@ export default function SpeakingPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Time Limit</Label>
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Time Limit</Label>
                 <div className="flex gap-3">
                   {TIME_LIMITS.map((t) => (
                     <button
                       key={t}
                       onClick={() => setSettings((s) => ({ ...s, timeLimit: t }))}
-                      className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-colors ${
+                      className={`flex-1 py-4 rounded-xl text-sm font-semibold transition-colors min-h-[56px] ${
                         settings.timeLimit === t
                           ? "bg-blue-400 text-white"
-                          : "bg-muted hover:bg-accent"
+                          : "bg-muted hover:bg-accent active:bg-accent"
                       }`}
                     >
                       {t} minutes
@@ -347,33 +346,31 @@ export default function SpeakingPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Conversation Topic</Label>
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Conversation Topic</Label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {TOPICS.map((t) => (
                     <button
                       key={t}
                       onClick={() => { setSettings((s) => ({ ...s, topic: t })); setUseCustom(false); }}
-                      className={`px-3 py-1.5 rounded-lg text-sm transition-colors text-left ${
+                      className={`px-4 py-2.5 rounded-xl text-sm transition-colors text-left min-h-[44px] ${
                         settings.topic === t && !useCustom
                           ? "bg-primary text-primary-foreground"
-                          : "bg-muted hover:bg-accent"
+                          : "bg-muted hover:bg-accent active:bg-accent"
                       }`}
                     >
                       {t}
                     </button>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Or type a custom topic..."
-                    value={customTopic}
-                    onChange={(e) => { setCustomTopic(e.target.value); setUseCustom(true); }}
-                    onFocus={() => setUseCustom(true)}
-                    className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
+                <input
+                  type="text"
+                  placeholder="Or type a custom topic..."
+                  value={customTopic}
+                  onChange={(e) => { setCustomTopic(e.target.value); setUseCustom(true); }}
+                  onFocus={() => setUseCustom(true)}
+                  className="w-full px-4 py-3 rounded-xl border border-input bg-background text-base focus:outline-none focus:ring-2 focus:ring-ring"
+                />
               </div>
             </div>
 
@@ -384,10 +381,10 @@ export default function SpeakingPage() {
 
             <Button
               onClick={() => setStep("recording")}
-              className="w-full bg-blue-500 hover:bg-blue-600"
+              className="w-full h-14 text-base bg-blue-500 hover:bg-blue-600"
               size="lg"
             >
-              <Mic className="w-4 h-4 mr-2" />
+              <Mic className="w-5 h-5 mr-2" />
               Start to Chat
             </Button>
           </div>
@@ -395,17 +392,16 @@ export default function SpeakingPage() {
 
         {/* Recording screen */}
         {step === "recording" && (
-          <div className="flex flex-col items-center space-y-7">
+          <div className="flex flex-col items-center space-y-6">
             <div className="text-center space-y-1">
               <h1 className="text-2xl font-bold">
                 {isRecording ? "Conversation in Progress" : "Get Ready to Speak"}
               </h1>
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-sm px-4">
                 Topic: <span className="font-medium text-foreground">&ldquo;{topic}&rdquo;</span>
               </p>
             </div>
 
-            {/* Setup instruction banner — only shown before recording starts */}
             {!isRecording && (
               <div className="w-full p-4 rounded-2xl bg-blue-50 border border-blue-200 flex items-start gap-3 text-sm text-blue-800">
                 <span className="text-xl mt-0.5">📱</span>
@@ -416,23 +412,24 @@ export default function SpeakingPage() {
               </div>
             )}
 
-            {/* Character */}
             <RecordingCharacter isRecording={isRecording} />
 
-            {/* Timer */}
+            {/* Prominent timer when recording */}
             {isRecording && (
-              <div className="w-full space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Elapsed: {formatTime(elapsed)}</span>
-                  <span className={`font-medium ${timeRemaining() < 30 ? "text-red-500" : "text-muted-foreground"}`}>
-                    Remaining: {formatTime(timeRemaining())}
+              <div className="w-full space-y-3">
+                <div className="text-center">
+                  <span className="text-5xl font-bold tabular-nums text-foreground">
+                    {formatTime(elapsed)}
                   </span>
+                  <p className={`text-sm mt-1 font-medium ${timeRemaining() < 30 ? "text-red-500" : "text-muted-foreground"}`}>
+                    {formatTime(timeRemaining())} remaining
+                  </p>
                 </div>
                 <Progress value={progressPct} className="h-3" />
               </div>
             )}
 
-            {/* Recording pulse indicator */}
+            {/* Pulsing recording indicator */}
             {isRecording && (
               <div className="flex items-center gap-2 text-red-500">
                 <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
@@ -440,13 +437,14 @@ export default function SpeakingPage() {
               </div>
             )}
 
+            {/* Large record / stop button */}
             {!isRecording ? (
               <Button
                 onClick={IS_DEMO ? handleDemoRecord : startRecording}
                 size="lg"
-                className="w-full max-w-xs bg-red-500 hover:bg-red-600 text-white"
+                className="w-full max-w-xs h-16 text-base bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-2xl shadow-lg"
               >
-                <Mic className="w-5 h-5 mr-2" />
+                <Mic className="w-6 h-6 mr-2" />
                 {IS_DEMO ? "Simulate Recording" : "Start Recording"}
               </Button>
             ) : (
@@ -454,9 +452,9 @@ export default function SpeakingPage() {
                 onClick={handleEndNow}
                 size="lg"
                 variant="outline"
-                className="w-full max-w-xs border-red-200 text-red-600 hover:bg-red-50"
+                className="w-full max-w-xs h-16 text-base border-2 border-red-300 text-red-600 hover:bg-red-50 active:bg-red-50 rounded-2xl"
               >
-                <Square className="w-4 h-4 mr-2" />
+                <Square className="w-5 h-5 mr-2" />
                 End Now
               </Button>
             )}
@@ -487,15 +485,15 @@ export default function SpeakingPage() {
             <div className="text-center space-y-2">
               <div className="text-5xl">🌟</div>
               <h1 className="text-2xl font-bold">Great Conversation!</h1>
-              <p className="text-muted-foreground">{feedback.summary}</p>
+              <p className="text-muted-foreground text-base">{feedback.summary}</p>
             </div>
 
             {/* Score */}
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="font-semibold">Overall Score</span>
-                  <span className="text-2xl font-bold text-blue-500">{feedback.overallScore}/100</span>
+                  <span className="font-semibold text-base">Overall Score</span>
+                  <span className="text-3xl font-bold text-blue-500">{feedback.overallScore}/100</span>
                 </div>
                 <Progress value={feedback.overallScore} className="h-3" />
                 <div className="flex justify-between mt-2 text-xs text-muted-foreground">
@@ -505,27 +503,27 @@ export default function SpeakingPage() {
               </CardContent>
             </Card>
 
-            {/* Feedback points */}
+            {/* Feedback points — scrollable list */}
             <div className="space-y-3">
               <h2 className="font-semibold text-lg">Detailed Feedback</h2>
               {feedback.points.map((point, i) => (
                 <Card key={i} className={`border-l-4 ${point.positive ? "border-l-green-400" : "border-l-amber-400"}`}>
-                  <CardContent className="pt-4">
+                  <CardContent className="pt-4 pb-4">
                     <div className="flex items-start gap-3">
-                      <span className="text-xl">{CATEGORY_EMOJI[point.category]}</span>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl shrink-0">{CATEGORY_EMOJI[point.category]}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="font-medium text-sm">{point.title}</span>
                           <Badge
                             variant="outline"
-                            className={`text-xs capitalize ${CATEGORY_COLORS[point.category]}`}
+                            className={`text-xs capitalize shrink-0 ${CATEGORY_COLORS[point.category]}`}
                           >
                             {point.category}
                           </Badge>
                           {point.positive ? (
-                            <CheckCircle2 className="w-4 h-4 text-green-500 ml-auto" />
+                            <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
                           ) : (
-                            <Star className="w-4 h-4 text-amber-400 ml-auto" />
+                            <Star className="w-4 h-4 text-amber-400 shrink-0" />
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground">{point.detail}</p>
@@ -536,19 +534,19 @@ export default function SpeakingPage() {
               ))}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 pb-4">
               {quizQuestions.length > 0 && (
                 <Button
                   variant="outline"
                   onClick={() => setShowQuiz(true)}
-                  className="flex-1"
+                  className="flex-1 h-12"
                 >
                   Take Quiz
                 </Button>
               )}
               <Button
                 onClick={() => setStep("results")}
-                className="flex-1 bg-blue-500 hover:bg-blue-600"
+                className="flex-1 h-12 bg-blue-500 hover:bg-blue-600"
               >
                 See Results
                 <ChevronRight className="w-4 h-4 ml-1" />
@@ -562,7 +560,7 @@ export default function SpeakingPage() {
           <div className="space-y-6">
             <div>
               <h1 className="text-2xl font-bold mb-1">Follow-up Quiz</h1>
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-base">
                 Based on your conversation — test what you know!
               </p>
             </div>
@@ -575,18 +573,18 @@ export default function SpeakingPage() {
                       {q.id}. {q.question}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="space-y-2.5">
                     {q.options.map((opt, idx) => (
                       <button
                         key={idx}
                         onClick={() => handleAnswer(q.id, idx)}
-                        className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-colors border ${
+                        className={`w-full text-left px-4 py-4 rounded-xl text-sm transition-colors border ${
                           userAnswers[q.id] === idx
                             ? "bg-blue-500 text-white border-blue-500"
-                            : "hover:bg-muted border-transparent"
+                            : "hover:bg-muted active:bg-muted border-transparent bg-muted/40"
                         }`}
                       >
-                        <span className="font-medium mr-2">
+                        <span className="font-semibold mr-2">
                           {String.fromCharCode(65 + idx)}.
                         </span>
                         {opt}
@@ -600,7 +598,7 @@ export default function SpeakingPage() {
             <Button
               onClick={() => setStep("results")}
               disabled={Object.keys(userAnswers).length < quizQuestions.length}
-              className="w-full bg-blue-500 hover:bg-blue-600"
+              className="w-full h-14 text-base bg-blue-500 hover:bg-blue-600"
               size="lg"
             >
               See Final Results
@@ -611,18 +609,19 @@ export default function SpeakingPage() {
         {/* Results screen */}
         {step === "results" && feedback && (
           <div className="space-y-6">
+            {/* Big score card */}
             <Card className="overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
-              <CardContent className="pt-8 pb-8 text-center space-y-4">
+              <CardContent className="pt-10 pb-10 text-center space-y-4">
                 <div className="text-5xl">🎊</div>
                 <h1 className="text-2xl font-bold">Session Complete!</h1>
-                <div className="text-5xl font-bold text-blue-500">
+                <div className="text-7xl font-bold text-blue-500 tabular-nums">
                   {feedback.overallScore}
-                  <span className="text-2xl text-muted-foreground">/100</span>
+                  <span className="text-3xl text-muted-foreground">/100</span>
                 </div>
-                <p className="text-muted-foreground">{feedback.summary}</p>
+                <p className="text-muted-foreground text-base">{feedback.summary}</p>
 
                 {showQuiz && quizQuestions.length > 0 && (
-                  <div className="mt-4 p-3 rounded-xl bg-white/70 border border-blue-200">
+                  <div className="mt-4 p-4 rounded-xl bg-white/70 border border-blue-200">
                     <p className="text-sm font-medium">
                       Quiz Score: {calculateScore()}/{quizQuestions.length}
                     </p>
@@ -647,7 +646,7 @@ export default function SpeakingPage() {
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <span>{CATEGORY_EMOJI[cat]}</span>
-                      <span className="text-xs font-semibold">{cat}</span>
+                      <span className="text-sm font-semibold">{cat}</span>
                     </div>
                     <p className="text-xs opacity-75">
                       {positiveCount}/{pts.length} positive
@@ -657,15 +656,15 @@ export default function SpeakingPage() {
               })}
             </div>
 
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={handleRetry} className="flex-1">
+            <div className="flex gap-3 pb-4">
+              <Button variant="outline" onClick={handleRetry} className="flex-1 h-12">
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Try Again
               </Button>
               <Button
                 onClick={() => setStep("feedback")}
                 variant="outline"
-                className="flex-1"
+                className="flex-1 h-12"
               >
                 View Feedback
               </Button>
