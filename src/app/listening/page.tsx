@@ -183,9 +183,9 @@ export default function ListeningPage() {
         accentColor="bg-orange-100"
       />
 
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8">
+      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6 sm:py-8">
         {/* Step indicator */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6 sm:mb-8">
           <StepIndicator
             steps={STEPS}
             currentStep={STEP_MAP[step]}
@@ -200,28 +200,28 @@ export default function ListeningPage() {
         {step === "settings" && (
           <div className="space-y-6">
             {IS_DEMO && (
-              <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
-                <FlaskConical className="w-4 h-4 flex-shrink-0" />
+              <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+                <FlaskConical className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <span><span className="font-semibold">Demo mode</span> — pre-written English content loads instantly. Add <code className="bg-amber-100 px-1 rounded">OPENAI_API_KEY</code> to generate real content.</span>
               </div>
             )}
             <div>
               <h1 className="text-2xl font-bold mb-1">Set up your session</h1>
-              <p className="text-muted-foreground">Choose what you want to practice today.</p>
+              <p className="text-muted-foreground text-base">Choose what you want to practice today.</p>
             </div>
 
             <div className="grid gap-5">
-              <div className="space-y-2">
-                <Label>Target Language</Label>
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Target Language</Label>
                 <div className="flex flex-wrap gap-2">
                   {LANGUAGES.map((lang) => (
                     <button
                       key={lang}
                       onClick={() => setSettings((s) => ({ ...s, language: lang }))}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
                         settings.language === lang
                           ? "bg-primary text-primary-foreground"
-                          : "bg-muted hover:bg-accent"
+                          : "bg-muted hover:bg-accent active:bg-accent"
                       }`}
                     >
                       {lang}
@@ -230,17 +230,17 @@ export default function ListeningPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Level</Label>
-                <div className="flex gap-2">
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Level</Label>
+                <div className="flex gap-3">
                   {LEVELS.map((level) => (
                     <button
                       key={level}
                       onClick={() => setSettings((s) => ({ ...s, level }))}
-                      className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                      className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-colors min-h-[52px] ${
                         settings.level === level
                           ? "bg-orange-400 text-white"
-                          : "bg-muted hover:bg-accent"
+                          : "bg-muted hover:bg-accent active:bg-accent"
                       }`}
                     >
                       {level}
@@ -249,17 +249,17 @@ export default function ListeningPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Topic</Label>
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Topic</Label>
                 <div className="flex flex-wrap gap-2">
                   {TOPICS.map((topic) => (
                     <button
                       key={topic}
                       onClick={() => setSettings((s) => ({ ...s, topic }))}
-                      className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                      className={`px-4 py-2.5 rounded-xl text-sm transition-colors min-h-[44px] ${
                         settings.topic === topic
                           ? "bg-primary text-primary-foreground"
-                          : "bg-muted hover:bg-accent"
+                          : "bg-muted hover:bg-accent active:bg-accent"
                       }`}
                     >
                       {topic}
@@ -268,17 +268,17 @@ export default function ListeningPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Content Type</Label>
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Content Type</Label>
                 <div className="flex flex-wrap gap-2">
                   {CONTENT_TYPES.map((type) => (
                     <button
                       key={type}
                       onClick={() => setSettings((s) => ({ ...s, contentType: type }))}
-                      className={`px-3 py-1.5 rounded-lg text-sm capitalize transition-colors ${
+                      className={`px-4 py-2.5 rounded-xl text-sm capitalize transition-colors min-h-[44px] ${
                         settings.contentType === type
                           ? "bg-primary text-primary-foreground"
-                          : "bg-muted hover:bg-accent"
+                          : "bg-muted hover:bg-accent active:bg-accent"
                       }`}
                     >
                       {type}
@@ -288,9 +288,9 @@ export default function ListeningPage() {
               </div>
             </div>
 
-            <Button onClick={handleGenerate} className="w-full" size="lg">
+            <Button onClick={handleGenerate} className="w-full h-14 text-base" size="lg">
               Generate &amp; Listen
-              <ChevronRight className="w-4 h-4 ml-1" />
+              <ChevronRight className="w-5 h-5 ml-1" />
             </Button>
           </div>
         )}
@@ -326,44 +326,56 @@ export default function ListeningPage() {
               </p>
             </div>
 
-            {/* Audio Player */}
+            {/* Audio Player — large touch-friendly controls */}
             <Card className="overflow-hidden">
-              <CardContent className="pt-6 space-y-4">
+              <CardContent className="pt-6 pb-6 space-y-5">
                 {IS_DEMO && (
-                  <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    <FlaskConical className="w-3.5 h-3.5 flex-shrink-0" />
+                  <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <FlaskConical className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                     <span>Demo mode — the audio plays a silent placeholder. Read the transcript to follow along.</span>
                   </div>
                 )}
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={handleRestart}
-                    className="p-2 rounded-full hover:bg-muted transition-colors"
-                  >
-                    <RotateCcw className="w-4 h-4 text-muted-foreground" />
-                  </button>
+
+                {/* Centered large play button */}
+                <div className="flex flex-col items-center gap-4">
                   <button
                     onClick={togglePlay}
-                    className="w-14 h-14 rounded-full bg-orange-400 hover:bg-orange-500 flex items-center justify-center transition-colors shadow-lg"
+                    className="w-20 h-20 rounded-full bg-orange-400 hover:bg-orange-500 active:bg-orange-600 flex items-center justify-center transition-colors shadow-lg"
+                    aria-label={isPlaying ? "Pause" : "Play"}
                   >
                     {isPlaying ? (
-                      <Pause className="w-6 h-6 text-white" />
+                      <Pause className="w-8 h-8 text-white" />
                     ) : (
-                      <Play className="w-6 h-6 text-white ml-0.5" />
+                      <Play className="w-8 h-8 text-white ml-1" />
                     )}
                   </button>
-                  <div className="flex-1 space-y-1">
-                    <Progress value={progress} className="h-2" />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>{formatTime(currentTime)}</span>
-                      <span>{formatTime(content.duration)}</span>
-                    </div>
+
+                  {/* Time display */}
+                  <div className="text-center">
+                    <span className="text-2xl font-bold tabular-nums">{formatTime(currentTime)}</span>
+                    <span className="text-muted-foreground text-sm"> / {formatTime(content.duration)}</span>
                   </div>
+                </div>
+
+                {/* Progress bar — taller for easier scrubbing */}
+                <div className="space-y-2">
+                  <Progress value={progress} className="h-3 cursor-pointer" />
+                </div>
+
+                {/* Restart button */}
+                <div className="flex justify-center">
+                  <button
+                    onClick={handleRestart}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-muted active:bg-muted transition-colors text-sm text-muted-foreground min-h-[44px]"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Restart
+                  </button>
                 </div>
 
                 <button
                   onClick={() => setShowTranscript(!showTranscript)}
-                  className="text-sm text-primary hover:underline"
+                  className="w-full text-sm text-primary hover:underline min-h-[44px] text-center"
                 >
                   {showTranscript ? "Hide" : "Show"} transcript
                 </button>
@@ -378,11 +390,11 @@ export default function ListeningPage() {
 
             <Button
               onClick={() => setStep("quiz")}
-              className="w-full"
+              className="w-full h-14 text-base"
               size="lg"
             >
               Take the Quiz
-              <ChevronRight className="w-4 h-4 ml-1" />
+              <ChevronRight className="w-5 h-5 ml-1" />
             </Button>
           </div>
         )}
@@ -392,7 +404,7 @@ export default function ListeningPage() {
           <div className="space-y-6">
             <div>
               <h1 className="text-2xl font-bold mb-1">Comprehension Quiz</h1>
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-base">
                 {questions.length} questions · Choose the best answer for each.
               </p>
             </div>
@@ -405,18 +417,18 @@ export default function ListeningPage() {
                       {q.id}. {q.question}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="space-y-2.5">
                     {q.options.map((opt, idx) => (
                       <button
                         key={idx}
                         onClick={() => handleAnswer(q.id, idx)}
-                        className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-colors border ${
+                        className={`w-full text-left px-4 py-4 rounded-xl text-sm transition-colors border ${
                           userAnswers[q.id] === idx
                             ? "bg-primary text-primary-foreground border-primary"
-                            : "hover:bg-muted border-transparent"
+                            : "hover:bg-muted active:bg-muted border-transparent bg-muted/40"
                         }`}
                       >
-                        <span className="font-medium mr-2">
+                        <span className="font-semibold mr-2">
                           {String.fromCharCode(65 + idx)}.
                         </span>
                         {opt}
@@ -430,11 +442,11 @@ export default function ListeningPage() {
             <Button
               onClick={() => setStep("results")}
               disabled={Object.keys(userAnswers).length < questions.length}
-              className="w-full"
+              className="w-full h-14 text-base"
               size="lg"
             >
               Submit Answers
-              <ChevronRight className="w-4 h-4 ml-1" />
+              <ChevronRight className="w-5 h-5 ml-1" />
             </Button>
           </div>
         )}
@@ -447,21 +459,23 @@ export default function ListeningPage() {
               const pct = Math.round((score / questions.length) * 100);
               return (
                 <>
+                  {/* Big score card */}
                   <Card className="overflow-hidden">
-                    <CardContent className="pt-8 pb-8 text-center space-y-3">
-                      <div className="text-6xl font-bold text-orange-400">
+                    <CardContent className="pt-10 pb-10 text-center space-y-3">
+                      <div className="text-7xl font-bold text-orange-400 tabular-nums">
                         {score}/{questions.length}
                       </div>
-                      <div className="text-xl font-semibold">
+                      <div className="text-2xl font-semibold">
                         {pct >= 80 ? "Excellent! 🎉" : pct >= 60 ? "Good Job! 👍" : "Keep Practicing 💪"}
                       </div>
-                      <p className="text-muted-foreground text-sm">
+                      <p className="text-muted-foreground text-base">
                         {pct}% comprehension score
                       </p>
                       <Progress value={pct} className="h-3 mt-2" />
                     </CardContent>
                   </Card>
 
+                  {/* Answer review */}
                   <div className="space-y-4">
                     <h2 className="font-semibold text-lg">Answer Review</h2>
                     {questions.map((q) => {
@@ -500,11 +514,11 @@ export default function ListeningPage() {
                     })}
                   </div>
 
-                  <div className="flex gap-3">
-                    <Button variant="outline" onClick={() => setStep("listening")} className="flex-1">
+                  <div className="flex gap-3 pb-4">
+                    <Button variant="outline" onClick={() => setStep("listening")} className="flex-1 h-12">
                       Listen Again
                     </Button>
-                    <Button onClick={handleRetry} className="flex-1">
+                    <Button onClick={handleRetry} className="flex-1 h-12">
                       New Session
                     </Button>
                   </div>
