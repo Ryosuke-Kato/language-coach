@@ -30,19 +30,9 @@ import type {
   SpeakingStep,
 } from "@/types";
 
-const LANGUAGES: Language[] = ["English", "Spanish", "French", "German", "Japanese", "Korean", "Chinese", "Italian", "Portuguese"];
+const LANGUAGES: Language[] = ["English", "French", "Spanish", "Japanese", "Mandarin", "Vietnamese"];
 const LEVELS: Level[] = ["A1", "A2", "B1", "B2"];
-const TIME_LIMITS: TimeLimit[] = [3, 5];
-const TOPICS = [
-  "What did you do last weekend?",
-  "Describe your dream vacation.",
-  "Talk about your hobbies and interests.",
-  "What do you think about social media?",
-  "Describe a memorable meal you've had.",
-  "What would you do if you won the lottery?",
-  "Talk about your favorite book or movie.",
-  "Describe your ideal job.",
-];
+const TIME_LIMITS: TimeLimit[] = [1, 3];
 
 const STEPS = ["Settings", "Record", "Feedback", "Results"];
 const STEP_MAP: Record<SpeakingStep, number> = {
@@ -72,8 +62,7 @@ export default function SpeakingPage() {
   const [step, setStep] = useState<SpeakingStep>("settings");
   const [settings, setSettings] = useState<SpeakingSettings>({
     language: "English",
-    timeLimit: 3,
-    topic: TOPICS[0],
+    timeLimit: 1,
   });
   const [level, setLevel] = useState<Level>("B1");
   const [isRecording, setIsRecording] = useState(false);
@@ -83,8 +72,6 @@ export default function SpeakingPage() {
   const [userAnswers, setUserAnswers] = useState<Record<number, number>>({});
   const [showQuiz, setShowQuiz] = useState(false);
   const [processingMsg, setProcessingMsg] = useState("Transcribing audio...");
-  const [customTopic, setCustomTopic] = useState("");
-  const [useCustom, setUseCustom] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -184,7 +171,6 @@ export default function SpeakingPage() {
           transcript,
           language: settings.language,
           level,
-          topic: useCustom ? customTopic : settings.topic,
         }),
       });
 
@@ -247,7 +233,6 @@ export default function SpeakingPage() {
     setIsRecording(false);
   }
 
-  const topic = useCustom ? customTopic : settings.topic;
   const totalTime = settings.timeLimit * 60;
   const progressPct = (elapsed / totalTime) * 100;
 
@@ -278,17 +263,24 @@ export default function SpeakingPage() {
             {IS_DEMO && (
               <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
                 <FlaskConical className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span><span className="font-semibold">Demo mode</span> — recording is skipped; a mock transcript &amp; feedback loads automatically. Add <code className="bg-amber-100 px-1 rounded">OPENAI_API_KEY</code> for real analysis.</span>
+                <span>
+                  <span className="font-semibold">Demo mode</span> — recording is
+                  skipped; a mock transcript &amp; feedback loads automatically. Add{" "}
+                  <code className="bg-amber-100 px-1 rounded">OPENAI_API_KEY</code>{" "}
+                  for real analysis.
+                </span>
               </div>
             )}
             <div>
               <h1 className="text-2xl font-bold mb-1">Set up your session</h1>
               <p className="text-muted-foreground text-base">
-                Choose a topic and start chatting with a partner. We&apos;ll analyze your conversation.
+                Choose a language and start chatting with a partner. We&apos;ll
+                analyze your conversation.
               </p>
             </div>
 
             <div className="grid gap-5">
+              {/* Language */}
               <div className="space-y-3">
                 <Label className="text-base font-medium">Language you are speaking</Label>
                 <div className="flex flex-wrap gap-2">
@@ -308,6 +300,7 @@ export default function SpeakingPage() {
                 </div>
               </div>
 
+              {/* Level */}
               <div className="space-y-3">
                 <Label className="text-base font-medium">Your Level</Label>
                 <div className="flex gap-3">
@@ -327,6 +320,7 @@ export default function SpeakingPage() {
                 </div>
               </div>
 
+              {/* Time Limit */}
               <div className="space-y-3">
                 <Label className="text-base font-medium">Time Limit</Label>
                 <div className="flex gap-3">
@@ -340,43 +334,20 @@ export default function SpeakingPage() {
                           : "bg-muted hover:bg-accent active:bg-accent"
                       }`}
                     >
-                      {t} minutes
+                      {t} minute{t > 1 ? "s" : ""}
                     </button>
                   ))}
                 </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-base font-medium">Conversation Topic</Label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {TOPICS.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => { setSettings((s) => ({ ...s, topic: t })); setUseCustom(false); }}
-                      className={`px-4 py-2.5 rounded-xl text-sm transition-colors text-left min-h-[44px] ${
-                        settings.topic === t && !useCustom
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted hover:bg-accent active:bg-accent"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="text"
-                  placeholder="Or type a custom topic..."
-                  value={customTopic}
-                  onChange={(e) => { setCustomTopic(e.target.value); setUseCustom(true); }}
-                  onFocus={() => setUseCustom(true)}
-                  className="w-full px-4 py-3 rounded-xl border border-input bg-background text-base focus:outline-none focus:ring-2 focus:ring-ring"
-                />
               </div>
             </div>
 
             <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700">
               <p className="font-medium mb-1">💬 How it works</p>
-              <p>Gather around one device with your conversation partners. Place it between you, tap Record, and have a natural conversation. AI will transcribe and analyze everyone&apos;s speaking.</p>
+              <p>
+                Gather around one device with your conversation partners. Place it
+                between you, tap Record, and have a natural conversation. AI will
+                transcribe and analyze everyone&apos;s speaking.
+              </p>
             </div>
 
             <Button
@@ -398,7 +369,8 @@ export default function SpeakingPage() {
                 {isRecording ? "Conversation in Progress" : "Get Ready to Speak"}
               </h1>
               <p className="text-muted-foreground text-sm px-4">
-                Topic: <span className="font-medium text-foreground">&ldquo;{topic}&rdquo;</span>
+                {settings.timeLimit} minute{settings.timeLimit > 1 ? "s" : ""} ·{" "}
+                {settings.language}
               </p>
             </div>
 
@@ -407,21 +379,29 @@ export default function SpeakingPage() {
                 <span className="text-xl mt-0.5">📱</span>
                 <div>
                   <p className="font-semibold mb-0.5">One device, all speakers</p>
-                  <p>Place this device <span className="font-medium">between all speakers</span> so everyone's voice is picked up. When you're ready, tap <span className="font-medium">Start Recording</span>.</p>
+                  <p>
+                    Place this device{" "}
+                    <span className="font-medium">between all speakers</span> so
+                    everyone&apos;s voice is picked up. When you&apos;re ready, tap{" "}
+                    <span className="font-medium">Start Recording</span>.
+                  </p>
                 </div>
               </div>
             )}
 
             <RecordingCharacter isRecording={isRecording} />
 
-            {/* Prominent timer when recording */}
             {isRecording && (
               <div className="w-full space-y-3">
                 <div className="text-center">
                   <span className="text-5xl font-bold tabular-nums text-foreground">
                     {formatTime(elapsed)}
                   </span>
-                  <p className={`text-sm mt-1 font-medium ${timeRemaining() < 30 ? "text-red-500" : "text-muted-foreground"}`}>
+                  <p
+                    className={`text-sm mt-1 font-medium ${
+                      timeRemaining() < 30 ? "text-red-500" : "text-muted-foreground"
+                    }`}
+                  >
                     {formatTime(timeRemaining())} remaining
                   </p>
                 </div>
@@ -429,15 +409,15 @@ export default function SpeakingPage() {
               </div>
             )}
 
-            {/* Pulsing recording indicator */}
             {isRecording && (
               <div className="flex items-center gap-2 text-red-500">
                 <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-sm font-medium">Recording — speak naturally!</span>
+                <span className="text-sm font-medium">
+                  Recording — speak naturally!
+                </span>
               </div>
             )}
 
-            {/* Large record / stop button */}
             {!isRecording ? (
               <Button
                 onClick={IS_DEMO ? handleDemoRecord : startRecording}
@@ -488,12 +468,13 @@ export default function SpeakingPage() {
               <p className="text-muted-foreground text-base">{feedback.summary}</p>
             </div>
 
-            {/* Score */}
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between mb-3">
                   <span className="font-semibold text-base">Overall Score</span>
-                  <span className="text-3xl font-bold text-blue-500">{feedback.overallScore}/100</span>
+                  <span className="text-3xl font-bold text-blue-500">
+                    {feedback.overallScore}/100
+                  </span>
                 </div>
                 <Progress value={feedback.overallScore} className="h-3" />
                 <div className="flex justify-between mt-2 text-xs text-muted-foreground">
@@ -503,20 +484,28 @@ export default function SpeakingPage() {
               </CardContent>
             </Card>
 
-            {/* Feedback points — scrollable list */}
             <div className="space-y-3">
               <h2 className="font-semibold text-lg">Detailed Feedback</h2>
               {feedback.points.map((point, i) => (
-                <Card key={i} className={`border-l-4 ${point.positive ? "border-l-green-400" : "border-l-amber-400"}`}>
+                <Card
+                  key={i}
+                  className={`border-l-4 ${
+                    point.positive ? "border-l-green-400" : "border-l-amber-400"
+                  }`}
+                >
                   <CardContent className="pt-4 pb-4">
                     <div className="flex items-start gap-3">
-                      <span className="text-xl shrink-0">{CATEGORY_EMOJI[point.category]}</span>
+                      <span className="text-xl shrink-0">
+                        {CATEGORY_EMOJI[point.category]}
+                      </span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="font-medium text-sm">{point.title}</span>
                           <Badge
                             variant="outline"
-                            className={`text-xs capitalize shrink-0 ${CATEGORY_COLORS[point.category]}`}
+                            className={`text-xs capitalize shrink-0 ${
+                              CATEGORY_COLORS[point.category]
+                            }`}
                           >
                             {point.category}
                           </Badge>
@@ -526,7 +515,9 @@ export default function SpeakingPage() {
                             <Star className="w-4 h-4 text-amber-400 shrink-0" />
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground">{point.detail}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {point.detail}
+                        </p>
                       </div>
                     </div>
                   </CardContent>
@@ -555,7 +546,7 @@ export default function SpeakingPage() {
           </div>
         )}
 
-        {/* Quiz screen (follow-up) */}
+        {/* Quiz screen */}
         {step === "feedback" && showQuiz && (
           <div className="space-y-6">
             <div>
@@ -609,7 +600,6 @@ export default function SpeakingPage() {
         {/* Results screen */}
         {step === "results" && feedback && (
           <div className="space-y-6">
-            {/* Big score card */}
             <Card className="overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
               <CardContent className="pt-10 pb-10 text-center space-y-4">
                 <div className="text-5xl">🎊</div>
@@ -634,26 +624,27 @@ export default function SpeakingPage() {
               </CardContent>
             </Card>
 
-            {/* Score breakdown */}
             <div className="grid grid-cols-2 gap-3">
-              {(["grammar", "vocabulary", "fluency", "pronunciation"] as const).map((cat) => {
-                const pts = feedback.points.filter((p) => p.category === cat);
-                const positiveCount = pts.filter((p) => p.positive).length;
-                return (
-                  <div
-                    key={cat}
-                    className={`p-4 rounded-xl border capitalize ${CATEGORY_COLORS[cat]}`}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span>{CATEGORY_EMOJI[cat]}</span>
-                      <span className="text-sm font-semibold">{cat}</span>
+              {(["grammar", "vocabulary", "fluency", "pronunciation"] as const).map(
+                (cat) => {
+                  const pts = feedback.points.filter((p) => p.category === cat);
+                  const positiveCount = pts.filter((p) => p.positive).length;
+                  return (
+                    <div
+                      key={cat}
+                      className={`p-4 rounded-xl border capitalize ${CATEGORY_COLORS[cat]}`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span>{CATEGORY_EMOJI[cat]}</span>
+                        <span className="text-sm font-semibold">{cat}</span>
+                      </div>
+                      <p className="text-xs opacity-75">
+                        {positiveCount}/{pts.length} positive
+                      </p>
                     </div>
-                    <p className="text-xs opacity-75">
-                      {positiveCount}/{pts.length} positive
-                    </p>
-                  </div>
-                );
-              })}
+                  );
+                }
+              )}
             </div>
 
             <div className="flex gap-3 pb-4">

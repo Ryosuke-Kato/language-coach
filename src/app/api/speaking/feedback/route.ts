@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const { transcript, language, level, topic } = await req.json();
+    const { transcript, language, level } = await req.json();
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
         },
         {
           role: "user",
-          content: `Analyze this ${language} conversation. Topic: ${topic}. Level: ${level}.
+          content: `Analyze this ${language} conversation. Level: ${level}.
 
 Transcript:
 ${transcript}

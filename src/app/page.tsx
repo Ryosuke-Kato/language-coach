@@ -45,7 +45,7 @@ export default function Home() {
                   test your comprehension with auto-generated quizzes.
                 </p>
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {["Dialogue", "Monologue", "News", "Story"].map((t) => (
+                  {["Dialogue", "News", "Story", "Announce"].map((t) => (
                     <span
                       key={t}
                       className="text-xs px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-200"
@@ -72,7 +72,7 @@ export default function Home() {
                   vocabulary, fluency, and pronunciation.
                 </p>
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {["3 min", "5 min", "Grammar", "Fluency"].map((t) => (
+                  {["1 min", "3 min", "Grammar", "Fluency"].map((t) => (
                     <span
                       key={t}
                       className="text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200"
