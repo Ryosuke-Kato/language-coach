@@ -1,7 +1,20 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Headphones, Play, Pause, RotateCcw, ChevronRight, CheckCircle2, XCircle, FlaskConical } from "lucide-react";
+import {
+  Headphones,
+  Play,
+  Pause,
+  RotateCcw,
+  ChevronRight,
+  CheckCircle2,
+  XCircle,
+  FlaskConical,
+  ImageIcon,
+  Tag,
+  Upload,
+  Loader2,
+} from "lucide-react";
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 import { Button } from "@/components/ui/button";
@@ -21,10 +34,21 @@ import type {
   ListeningStep,
 } from "@/types";
 
-const LANGUAGES: Language[] = ["English", "Spanish", "French", "German", "Japanese", "Korean", "Chinese", "Italian", "Portuguese"];
+const LANGUAGES: Language[] = ["English", "French", "Spanish", "Japanese", "Mandarin", "Vietnamese"];
 const LEVELS: Level[] = ["A1", "A2", "B1", "B2"];
-const CONTENT_TYPES: ContentType[] = ["dialogue", "monologue", "news", "story", "interview"];
-const TOPICS = ["Travel", "Food & Cooking", "Technology", "Sports", "Environment", "Health", "Music", "Daily Life", "History", "Science"];
+const CONTENT_TYPES: ContentType[] = ["dialogue", "news", "story", "announce"];
+const PRESET_TOPICS = [
+  "Travel",
+  "Food & Cooking",
+  "Technology",
+  "Sports",
+  "Environment",
+  "Health",
+  "Music",
+  "Daily Life",
+  "History",
+  "Science",
+];
 
 const STEPS = ["Settings", "Listen", "Quiz", "Results"];
 const STEP_MAP: Record<ListeningStep, number> = {
@@ -35,10 +59,22 @@ const STEP_MAP: Record<ListeningStep, number> = {
   results: 3,
 };
 
+type TopicMode = "keyword" | "image";
+
+function dataUrlToBlobUrl(dataUrl: string): string {
+  const arr = dataUrl.split(",");
+  const mime = arr[0].match(/:(.*?);/)![1];
+  const bstr = atob(arr[1]);
+  const u8arr = new Uint8Array(bstr.length);
+  for (let i = 0; i < bstr.length; i++) u8arr[i] = bstr.charCodeAt(i);
+  const blob = new Blob([u8arr], { type: mime });
+  return URL.createObjectURL(blob);
+}
+
 export default function ListeningPage() {
   const [step, setStep] = useState<ListeningStep>("settings");
   const [settings, setSettings] = useState<ListeningSettings>({
-    language: "Spanish",
+    language: "French",
     level: "B1",
     topic: "Travel",
     contentType: "dialogue",
@@ -52,12 +88,23 @@ export default function ListeningPage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [loadingMsg, setLoadingMsg] = useState("Generating content...");
 
+  // Topic mode state
+  const [topicMode, setTopicMode] = useState<TopicMode>("keyword");
+  const [useOtherKeyword, setUseOtherKeyword] = useState(false);
+  const [otherKeywordValue, setOtherKeywordValue] = useState("");
+  const [detectedTopics, setDetectedTopics] = useState<string[]>([]);
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
     };
   }, []);
 
@@ -96,12 +143,53 @@ export default function ListeningPage() {
     }
   }
 
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => setImagePreviewUrl(ev.target?.result as string);
+    reader.readAsDataURL(file);
+
+    setIsAnalyzingImage(true);
+    setDetectedTopics([]);
+
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch("/api/listening/analyze-image", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Analysis failed");
+      const data = await res.json();
+      const topics: string[] = data.topics ?? [];
+      setDetectedTopics(topics);
+      if (topics.length > 0) setSettings((s) => ({ ...s, topic: topics[0] }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsAnalyzingImage(false);
+    }
+  }
+
   function setupAudio(url: string) {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
     }
-    const audio = new Audio(url);
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+
+    let playUrl = url;
+    if (url.startsWith("data:")) {
+      playUrl = dataUrlToBlobUrl(url);
+      blobUrlRef.current = playUrl;
+    }
+
+    const audio = new Audio(playUrl);
     audioRef.current = audio;
 
     audio.addEventListener("timeupdate", () => {
@@ -110,10 +198,13 @@ export default function ListeningPage() {
         setCurrentTime(audio.currentTime);
       }
     });
-
     audio.addEventListener("ended", () => {
       setIsPlaying(false);
       setProgress(100);
+    });
+    audio.addEventListener("error", (e) => {
+      console.error("Audio playback error:", e);
+      setIsPlaying(false);
     });
   }
 
@@ -131,8 +222,12 @@ export default function ListeningPage() {
       audio.pause();
       setIsPlaying(false);
     } else {
-      audio.play();
-      setIsPlaying(true);
+      audio.play()
+        .then(() => setIsPlaying(true))
+        .catch((err) => {
+          console.error("Playback failed:", err);
+          setIsPlaying(false);
+        });
     }
   }
 
@@ -142,8 +237,9 @@ export default function ListeningPage() {
     audio.currentTime = 0;
     setProgress(0);
     setCurrentTime(0);
-    audio.play();
-    setIsPlaying(true);
+    audio.play()
+      .then(() => setIsPlaying(true))
+      .catch(console.error);
   }
 
   function formatTime(s: number) {
@@ -173,7 +269,42 @@ export default function ListeningPage() {
       audioRef.current.pause();
       audioRef.current = null;
     }
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
   }
+
+  function handleSelectPresetTopic(topic: string) {
+    setSettings((s) => ({ ...s, topic }));
+    setUseOtherKeyword(false);
+    setOtherKeywordValue("");
+  }
+
+  function handleSelectOther() {
+    setUseOtherKeyword(true);
+    setSettings((s) => ({ ...s, topic: otherKeywordValue }));
+  }
+
+  function handleOtherKeywordChange(value: string) {
+    setOtherKeywordValue(value);
+    setSettings((s) => ({ ...s, topic: value }));
+  }
+
+  function handleTopicModeChange(mode: TopicMode) {
+    setTopicMode(mode);
+    if (mode === "keyword") {
+      setSettings((s) => ({ ...s, topic: "Travel" }));
+      setUseOtherKeyword(false);
+      setOtherKeywordValue("");
+    } else {
+      if (detectedTopics.length === 0) {
+        setSettings((s) => ({ ...s, topic: "" }));
+      }
+    }
+  }
+
+  const isPresetSelected = !useOtherKeyword && PRESET_TOPICS.includes(settings.topic);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -202,15 +333,23 @@ export default function ListeningPage() {
             {IS_DEMO && (
               <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
                 <FlaskConical className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span><span className="font-semibold">Demo mode</span> — pre-written English content loads instantly. Add <code className="bg-amber-100 px-1 rounded">OPENAI_API_KEY</code> to generate real content.</span>
+                <span>
+                  <span className="font-semibold">Demo mode</span> — pre-written
+                  English content loads instantly. Add{" "}
+                  <code className="bg-amber-100 px-1 rounded">OPENAI_API_KEY</code>{" "}
+                  to generate real content in your selected language.
+                </span>
               </div>
             )}
             <div>
               <h1 className="text-2xl font-bold mb-1">Set up your session</h1>
-              <p className="text-muted-foreground text-base">Choose what you want to practice today.</p>
+              <p className="text-muted-foreground text-base">
+                Choose what you want to practice today.
+              </p>
             </div>
 
             <div className="grid gap-5">
+              {/* Language */}
               <div className="space-y-3">
                 <Label className="text-base font-medium">Target Language</Label>
                 <div className="flex flex-wrap gap-2">
@@ -230,6 +369,7 @@ export default function ListeningPage() {
                 </div>
               </div>
 
+              {/* Level */}
               <div className="space-y-3">
                 <Label className="text-base font-medium">Level</Label>
                 <div className="flex gap-3">
@@ -249,25 +389,148 @@ export default function ListeningPage() {
                 </div>
               </div>
 
+              {/* Topic — keyword or image */}
               <div className="space-y-3">
                 <Label className="text-base font-medium">Topic</Label>
-                <div className="flex flex-wrap gap-2">
-                  {TOPICS.map((topic) => (
-                    <button
-                      key={topic}
-                      onClick={() => setSettings((s) => ({ ...s, topic }))}
-                      className={`px-4 py-2.5 rounded-xl text-sm transition-colors min-h-[44px] ${
-                        settings.topic === topic
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted hover:bg-accent active:bg-accent"
-                      }`}
-                    >
-                      {topic}
-                    </button>
-                  ))}
+
+                {/* Mode toggle */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleTopicModeChange("keyword")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
+                      topicMode === "keyword"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-accent active:bg-accent"
+                    }`}
+                  >
+                    <Tag className="w-4 h-4" />
+                    Keyword
+                  </button>
+                  <button
+                    onClick={() => handleTopicModeChange("image")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
+                      topicMode === "image"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-accent active:bg-accent"
+                    }`}
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    Image
+                  </button>
                 </div>
+
+                {/* Keyword mode */}
+                {topicMode === "keyword" && (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {PRESET_TOPICS.map((topic) => (
+                        <button
+                          key={topic}
+                          onClick={() => handleSelectPresetTopic(topic)}
+                          className={`px-4 py-2.5 rounded-xl text-sm transition-colors min-h-[44px] ${
+                            isPresetSelected && settings.topic === topic
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted hover:bg-accent active:bg-accent"
+                          }`}
+                        >
+                          {topic}
+                        </button>
+                      ))}
+                      <button
+                        onClick={handleSelectOther}
+                        className={`px-4 py-2.5 rounded-xl text-sm transition-colors min-h-[44px] ${
+                          useOtherKeyword
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted hover:bg-accent active:bg-accent"
+                        }`}
+                      >
+                        Other
+                      </button>
+                    </div>
+                    {useOtherKeyword && (
+                      <input
+                        autoFocus
+                        type="text"
+                        placeholder="Enter a topic or keyword…"
+                        value={otherKeywordValue}
+                        onChange={(e) => handleOtherKeywordChange(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-input bg-background text-base focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Image mode */}
+                {topicMode === "image" && (
+                  <div className="space-y-3">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full flex flex-col items-center gap-3 py-8 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-muted/30 transition-colors"
+                    >
+                      {imagePreviewUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={imagePreviewUrl}
+                          alt="Uploaded"
+                          className="max-h-32 rounded-lg object-contain"
+                        />
+                      ) : (
+                        <Upload className="w-8 h-8 text-muted-foreground" />
+                      )}
+                      <span className="text-sm text-muted-foreground">
+                        {imagePreviewUrl ? "Tap to change image" : "Tap to upload an image"}
+                      </span>
+                    </button>
+
+                    {isAnalyzingImage && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Identifying topics from image…
+                      </div>
+                    )}
+
+                    {detectedTopics.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          Detected topics — tap to select:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {detectedTopics.map((topic) => (
+                            <button
+                              key={topic}
+                              onClick={() => setSettings((s) => ({ ...s, topic }))}
+                              className={`px-4 py-2.5 rounded-xl text-sm transition-colors min-h-[44px] ${
+                                settings.topic === topic
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted hover:bg-accent active:bg-accent"
+                              }`}
+                            >
+                              {topic}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Active topic display */}
+                {settings.topic && (
+                  <p className="text-xs text-muted-foreground">
+                    Selected topic:{" "}
+                    <span className="font-medium text-foreground">{settings.topic}</span>
+                  </p>
+                )}
               </div>
 
+              {/* Content Type */}
               <div className="space-y-3">
                 <Label className="text-base font-medium">Content Type</Label>
                 <div className="flex flex-wrap gap-2">
@@ -288,7 +551,12 @@ export default function ListeningPage() {
               </div>
             </div>
 
-            <Button onClick={handleGenerate} className="w-full h-14 text-base" size="lg">
+            <Button
+              onClick={handleGenerate}
+              disabled={!settings.topic}
+              className="w-full h-14 text-base"
+              size="lg"
+            >
               Generate &amp; Listen
               <ChevronRight className="w-5 h-5 ml-1" />
             </Button>
@@ -326,17 +594,21 @@ export default function ListeningPage() {
               </p>
             </div>
 
-            {/* Audio Player — large touch-friendly controls */}
+            {/* Audio Player */}
             <Card className="overflow-hidden">
               <CardContent className="pt-6 pb-6 space-y-5">
                 {IS_DEMO && (
                   <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                     <FlaskConical className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                    <span>Demo mode — the audio plays a silent placeholder. Read the transcript to follow along.</span>
+                    <span>
+                      Demo mode — content is pre-written in English regardless of
+                      selected language. Add{" "}
+                      <code className="bg-amber-100 px-0.5 rounded">OPENAI_API_KEY</code>{" "}
+                      for real {settings.language} audio and transcript.
+                    </span>
                   </div>
                 )}
 
-                {/* Centered large play button */}
                 <div className="flex flex-col items-center gap-4">
                   <button
                     onClick={togglePlay}
@@ -350,19 +622,21 @@ export default function ListeningPage() {
                     )}
                   </button>
 
-                  {/* Time display */}
                   <div className="text-center">
-                    <span className="text-2xl font-bold tabular-nums">{formatTime(currentTime)}</span>
-                    <span className="text-muted-foreground text-sm"> / {formatTime(content.duration)}</span>
+                    <span className="text-2xl font-bold tabular-nums">
+                      {formatTime(currentTime)}
+                    </span>
+                    <span className="text-muted-foreground text-sm">
+                      {" "}
+                      / {formatTime(content.duration)}
+                    </span>
                   </div>
                 </div>
 
-                {/* Progress bar — taller for easier scrubbing */}
                 <div className="space-y-2">
                   <Progress value={progress} className="h-3 cursor-pointer" />
                 </div>
 
-                {/* Restart button */}
                 <div className="flex justify-center">
                   <button
                     onClick={handleRestart}
@@ -459,14 +733,17 @@ export default function ListeningPage() {
               const pct = Math.round((score / questions.length) * 100);
               return (
                 <>
-                  {/* Big score card */}
                   <Card className="overflow-hidden">
                     <CardContent className="pt-10 pb-10 text-center space-y-3">
                       <div className="text-7xl font-bold text-orange-400 tabular-nums">
                         {score}/{questions.length}
                       </div>
                       <div className="text-2xl font-semibold">
-                        {pct >= 80 ? "Excellent! 🎉" : pct >= 60 ? "Good Job! 👍" : "Keep Practicing 💪"}
+                        {pct >= 80
+                          ? "Excellent! 🎉"
+                          : pct >= 60
+                          ? "Good Job! 👍"
+                          : "Keep Practicing 💪"}
                       </div>
                       <p className="text-muted-foreground text-base">
                         {pct}% comprehension score
@@ -475,7 +752,6 @@ export default function ListeningPage() {
                     </CardContent>
                   </Card>
 
-                  {/* Answer review */}
                   <div className="space-y-4">
                     <h2 className="font-semibold text-lg">Answer Review</h2>
                     {questions.map((q) => {
@@ -483,7 +759,12 @@ export default function ListeningPage() {
                       const correct = q.correctIndex;
                       const isCorrect = userAns === correct;
                       return (
-                        <Card key={q.id} className={`border-l-4 ${isCorrect ? "border-l-green-400" : "border-l-red-400"}`}>
+                        <Card
+                          key={q.id}
+                          className={`border-l-4 ${
+                            isCorrect ? "border-l-green-400" : "border-l-red-400"
+                          }`}
+                        >
                           <CardContent className="pt-4 space-y-2">
                             <div className="flex items-start gap-2">
                               {isCorrect ? (
@@ -515,7 +796,11 @@ export default function ListeningPage() {
                   </div>
 
                   <div className="flex gap-3 pb-4">
-                    <Button variant="outline" onClick={() => setStep("listening")} className="flex-1 h-12">
+                    <Button
+                      variant="outline"
+                      onClick={() => setStep("listening")}
+                      className="flex-1 h-12"
+                    >
                       Listen Again
                     </Button>
                     <Button onClick={handleRetry} className="flex-1 h-12">

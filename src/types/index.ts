@@ -1,7 +1,7 @@
-export type Language = "English" | "Spanish" | "French" | "German" | "Japanese" | "Korean" | "Chinese" | "Italian" | "Portuguese";
+export type Language = "English" | "Spanish" | "French" | "Japanese" | "Mandarin" | "Vietnamese";
 export type Level = "A1" | "A2" | "B1" | "B2";
-export type ContentType = "dialogue" | "monologue" | "news" | "story" | "interview";
-export type TimeLimit = 3 | 5;
+export type ContentType = "dialogue" | "news" | "story" | "announce";
+export type TimeLimit = 1 | 3;
 
 // Listening module types
 export interface ListeningSettings {
@@ -36,7 +36,6 @@ export type ListeningStep =
 export interface SpeakingSettings {
   language: Language;
   timeLimit: TimeLimit;
-  topic: string;
 }
 
 export interface SpeakingFeedback {
