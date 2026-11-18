@@ -93,7 +93,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="py-5 px-4 border-t border-border/50 text-center text-sm text-muted-foreground">
-        <p>Powered by OpenAI GPT-4o, TTS &amp; Whisper</p>
+        <p>Powered by Google Gemini 1.5 Flash &amp; Web Speech API</p>
       </footer>
     </main>
   );

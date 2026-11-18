@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { DEMO_TRANSCRIPT } from "@/lib/mockData";
 
-const isDemo = () => process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+const isDemo = () =>
+  process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !process.env.GEMINI_API_KEY;
 
 export async function POST(req: NextRequest) {
   if (isDemo()) {
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const formData = await req.formData();
     const audioFile = formData.get("audio") as File;
     const language = formData.get("language") as string;
@@ -20,34 +21,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No audio file" }, { status: 400 });
     }
 
-    const transcription = await openai.audio.transcriptions.create({
-      file: audioFile,
-      model: "whisper-1",
-      language: getWhisperLanguageCode(language),
-      response_format: "text",
-    });
+    const bytes = await audioFile.arrayBuffer();
+    const base64 = Buffer.from(bytes).toString("base64");
+    const mimeType = audioFile.type || "audio/webm";
 
-    return NextResponse.json({ transcript: transcription });
-  } catch (err) {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const result = await model.generateContent([
+      { inlineData: { mimeType, data: base64 } },
+      `Transcribe exactly what is said in this audio recording in ${language}. Return only the transcription text with no additional commentary or formatting.`,
+    ]);
+
+    const transcript = result.response.text().trim();
+    return NextResponse.json({ transcript });
+  } catch (err: unknown) {
     console.error("Transcription error:", err);
-    return NextResponse.json(
-      { error: "Failed to transcribe audio" },
-      { status: 500 }
-    );
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-}
-
-function getWhisperLanguageCode(language: string): string {
-  const codes: Record<string, string> = {
-    English: "en",
-    Spanish: "es",
-    French: "fr",
-    German: "de",
-    Japanese: "ja",
-    Korean: "ko",
-    Chinese: "zh",
-    Italian: "it",
-    Portuguese: "pt",
-  };
-  return codes[language] ?? "en";
 }
