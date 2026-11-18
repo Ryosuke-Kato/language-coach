@@ -28,10 +28,11 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ transcript: transcription });
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Transcription error:", err);
+    const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: "Failed to transcribe audio" },
+      { error: message },
       { status: 500 }
     );
   }
@@ -42,12 +43,9 @@ function getWhisperLanguageCode(language: string): string {
     English: "en",
     Spanish: "es",
     French: "fr",
-    German: "de",
     Japanese: "ja",
-    Korean: "ko",
-    Chinese: "zh",
-    Italian: "it",
-    Portuguese: "pt",
+    Mandarin: "zh",
+    Vietnamese: "vi",
   };
   return codes[language] ?? "en";
 }

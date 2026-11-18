@@ -51,10 +51,11 @@ Include 4-6 feedback points and 3 quiz questions.`,
 
     const data = JSON.parse(completion.choices[0].message.content ?? "{}");
     return NextResponse.json(data);
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Feedback generation error:", err);
+    const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: "Failed to generate feedback" },
+      { error: message },
       { status: 500 }
     );
   }

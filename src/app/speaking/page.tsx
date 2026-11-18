@@ -159,8 +159,9 @@ export default function SpeakingPage() {
         body: formData,
       });
 
-      if (!tRes.ok) throw new Error("Transcription failed");
-      const { transcript } = await tRes.json();
+      const tData = await tRes.json();
+      if (!tRes.ok) throw new Error(tData.error ?? "Transcription failed");
+      const { transcript } = tData;
 
       setProcessingMsg("Analyzing your language skills...");
 
@@ -174,8 +175,8 @@ export default function SpeakingPage() {
         }),
       });
 
-      if (!fRes.ok) throw new Error("Feedback failed");
       const fData = await fRes.json();
+      if (!fRes.ok) throw new Error(fData.error ?? "Feedback failed");
 
       setFeedback({
         overallScore: fData.overallScore,
@@ -188,7 +189,7 @@ export default function SpeakingPage() {
       console.error(err);
       setStep("recording");
       setIsRecording(false);
-      alert("Failed to process recording. Check your OPENAI_API_KEY.");
+      alert(`Processing failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
