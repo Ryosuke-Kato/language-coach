@@ -36,10 +36,11 @@ Return JSON: { "questions": [{ "id": 1, "question": "...", "options": ["A","B","
 
     const data = JSON.parse(completion.choices[0].message.content ?? "{}");
     return NextResponse.json(data);
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Quiz generation error:", err);
+    const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: "Failed to generate quiz" },
+      { error: message },
       { status: 500 }
     );
   }

@@ -118,8 +118,8 @@ export default function ListeningPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
       });
-      if (!res.ok) throw new Error("Generation failed");
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Generation failed");
       setContent(data);
 
       setLoadingMsg("Generating quiz questions...");
@@ -132,14 +132,14 @@ export default function ListeningPage() {
           level: settings.level,
         }),
       });
-      if (!qRes.ok) throw new Error("Quiz failed");
       const qData = await qRes.json();
+      if (!qRes.ok) throw new Error(qData.error ?? "Quiz generation failed");
       setQuestions(qData.questions ?? []);
       setStep("listening");
     } catch (err) {
       console.error(err);
       setStep("settings");
-      alert("Failed to generate content. Check your OPENAI_API_KEY.");
+      alert(`Generation failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

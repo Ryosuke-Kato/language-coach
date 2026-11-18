@@ -58,10 +58,11 @@ Return JSON: { "title": "...", "transcript": "...", "ttsText": "..." }`,
       audioUrl: audioDataUrl,
       duration,
     });
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Listening generate error:", err);
+    const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: "Failed to generate content" },
+      { error: message },
       { status: 500 }
     );
   }
