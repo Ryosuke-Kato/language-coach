@@ -20,7 +20,6 @@ export interface QuizQuestion {
 
 export interface ListeningContent {
   transcript: string;
-  audioUrl: string;
   title: string;
   duration: number;
 }

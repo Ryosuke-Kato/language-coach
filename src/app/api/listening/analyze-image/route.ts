@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const isDemo = () => process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+const isDemo = () =>
+  process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !process.env.GEMINI_API_KEY;
 
 const DEMO_TOPICS = [
   "Café Life",
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const formData = await req.formData();
     const image = formData.get("image") as File | null;
     if (!image) {
@@ -29,31 +30,24 @@ export async function POST(req: NextRequest) {
     const base64 = Buffer.from(bytes).toString("base64");
     const mimeType = image.type || "image/jpeg";
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image_url",
-              image_url: { url: `data:${mimeType};base64,${base64}` },
-            },
-            {
-              type: "text",
-              text: `Identify 4–6 specific topics or keywords visible in this image that could serve as language learning conversation topics (e.g. places, activities, objects, situations). Be concise — 1–4 words each.
-Return JSON: { "topics": ["...", "..."] }`,
-            },
-          ],
-        },
-      ],
-      response_format: { type: "json_object" },
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" },
     });
 
-    const data = JSON.parse(completion.choices[0].message.content ?? "{}");
+    const result = await model.generateContent([
+      {
+        inlineData: { mimeType, data: base64 },
+      },
+      `Identify 4–6 specific topics or keywords visible in this image that could serve as language learning conversation topics (e.g. places, activities, objects, situations). Be concise — 1–4 words each.
+Return JSON: { "topics": ["...", "..."] }`,
+    ]);
+
+    const data = JSON.parse(result.response.text());
     return NextResponse.json({ topics: data.topics ?? [] });
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Image analysis error:", err);
-    return NextResponse.json({ error: "Failed to analyze image" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

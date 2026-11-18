@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { DEMO_LISTENING } from "@/lib/mockData";
 
-const isDemo = () => process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+const isDemo = () =>
+  process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !process.env.GEMINI_API_KEY;
 
 export async function POST(req: NextRequest) {
   if (isDemo()) {
-    await new Promise((r) => setTimeout(r, 1200)); // simulate latency
+    await new Promise((r) => setTimeout(r, 1200));
     return NextResponse.json(DEMO_LISTENING);
   }
 
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const { language, level, topic, contentType } = await req.json();
 
     const wordCounts: Record<string, number> = {
@@ -22,47 +23,33 @@ export async function POST(req: NextRequest) {
     };
     const wordCount = wordCounts[level] ?? 150;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a language learning content creator. Generate natural, engaging ${contentType} transcripts in ${language} for ${level} learners.`,
-        },
-        {
-          role: "user",
-          content: `Create a ${contentType} in ${language} at ${level} level about "${topic}". Approximately ${wordCount} words.
-Return JSON: { "title": "...", "transcript": "...", "ttsText": "..." }`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.8,
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      systemInstruction: `You are a language learning content creator. Generate natural, engaging ${contentType} transcripts in ${language} for ${level} learners.`,
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.8,
+      },
     });
 
-    const data = JSON.parse(completion.choices[0].message.content ?? "{}");
+    const result = await model.generateContent(
+      `Create a ${contentType} in ${language} at ${level} level about "${topic}". Approximately ${wordCount} words.
+Return JSON: { "title": "...", "transcript": "..." }`
+    );
 
-    const mp3 = await openai.audio.speech.create({
-      model: "tts-1",
-      voice: "nova",
-      input: data.ttsText ?? data.transcript,
-      speed: level === "A1" || level === "A2" ? 0.9 : 1.0,
-    });
-
-    const audioBuffer = Buffer.from(await mp3.arrayBuffer());
-    const audioDataUrl = `data:audio/mpeg;base64,${audioBuffer.toString("base64")}`;
-    const duration = Math.ceil((data.transcript.split(/\s+/).length / 130) * 60);
+    const data = JSON.parse(result.response.text());
+    const duration = Math.ceil(
+      (data.transcript.split(/\s+/).length / 130) * 60
+    );
 
     return NextResponse.json({
       title: data.title,
       transcript: data.transcript,
-      audioUrl: audioDataUrl,
       duration,
     });
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Listening generate error:", err);
-    return NextResponse.json(
-      { error: "Failed to generate content" },
-      { status: 500 }
-    );
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

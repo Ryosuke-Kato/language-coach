@@ -50,6 +50,15 @@ const PRESET_TOPICS = [
   "Science",
 ];
 
+const LANG_BCP47: Record<Language, string> = {
+  English: "en-US",
+  French: "fr-FR",
+  Spanish: "es-ES",
+  Japanese: "ja-JP",
+  Mandarin: "zh-CN",
+  Vietnamese: "vi-VN",
+};
+
 const STEPS = ["Settings", "Listen", "Quiz", "Results"];
 const STEP_MAP: Record<ListeningStep, number> = {
   settings: 0,
@@ -60,16 +69,6 @@ const STEP_MAP: Record<ListeningStep, number> = {
 };
 
 type TopicMode = "keyword" | "image";
-
-function dataUrlToBlobUrl(dataUrl: string): string {
-  const arr = dataUrl.split(",");
-  const mime = arr[0].match(/:(.*?);/)![1];
-  const bstr = atob(arr[1]);
-  const u8arr = new Uint8Array(bstr.length);
-  for (let i = 0; i < bstr.length; i++) u8arr[i] = bstr.charCodeAt(i);
-  const blob = new Blob([u8arr], { type: mime });
-  return URL.createObjectURL(blob);
-}
 
 export default function ListeningPage() {
   const [step, setStep] = useState<ListeningStep>("settings");
@@ -84,11 +83,10 @@ export default function ListeningPage() {
   const [userAnswers, setUserAnswers] = useState<Record<number, number>>({});
   const [showTranscript, setShowTranscript] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [charIndex, setCharIndex] = useState(0);
   const [loadingMsg, setLoadingMsg] = useState("Generating content...");
 
-  // Topic mode state
+  // Topic mode
   const [topicMode, setTopicMode] = useState<TopicMode>("keyword");
   const [useOtherKeyword, setUseOtherKeyword] = useState(false);
   const [otherKeywordValue, setOtherKeywordValue] = useState("");
@@ -96,17 +94,68 @@ export default function ListeningPage() {
   const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const blobUrlRef = useRef<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+      if (typeof window !== "undefined") window.speechSynthesis.cancel();
     };
   }, []);
+
+  // Stop speech when leaving listen step
+  useEffect(() => {
+    if (step !== "listening" && typeof window !== "undefined") {
+      window.speechSynthesis.cancel();
+      setIsPlaying(false);
+    }
+  }, [step]);
+
+  function createUtterance(text: string): SpeechSynthesisUtterance {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = LANG_BCP47[settings.language] ?? "en-US";
+    utterance.rate = ["A1", "A2"].includes(settings.level) ? 0.85 : 1.0;
+    utterance.onboundary = (e) => setCharIndex(e.charIndex);
+    utterance.onend = () => {
+      setIsPlaying(false);
+      if (content) setCharIndex(content.transcript.length);
+    };
+    return utterance;
+  }
+
+  function togglePlay() {
+    if (typeof window === "undefined" || !content) return;
+    const synth = window.speechSynthesis;
+
+    if (isPlaying) {
+      synth.pause();
+      setIsPlaying(false);
+    } else {
+      if (synth.paused && utteranceRef.current) {
+        synth.resume();
+        setIsPlaying(true);
+      } else {
+        const utterance = createUtterance(content.transcript);
+        utteranceRef.current = utterance;
+        synth.speak(utterance);
+        setIsPlaying(true);
+      }
+    }
+  }
+
+  function handleRestart() {
+    if (typeof window === "undefined" || !content) return;
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    setCharIndex(0);
+    setIsPlaying(false);
+    setTimeout(() => {
+      const utterance = createUtterance(content.transcript);
+      utteranceRef.current = utterance;
+      synth.speak(utterance);
+      setIsPlaying(true);
+    }, 50);
+  }
 
   async function handleGenerate() {
     setStep("loading");
@@ -118,9 +167,10 @@ export default function ListeningPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
       });
-      if (!res.ok) throw new Error("Generation failed");
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Generation failed");
       setContent(data);
+      setCharIndex(0);
 
       setLoadingMsg("Generating quiz questions...");
       const qRes = await fetch("/api/listening/quiz", {
@@ -132,14 +182,14 @@ export default function ListeningPage() {
           level: settings.level,
         }),
       });
-      if (!qRes.ok) throw new Error("Quiz failed");
       const qData = await qRes.json();
+      if (!qRes.ok) throw new Error(qData.error ?? "Quiz generation failed");
       setQuestions(qData.questions ?? []);
       setStep("listening");
     } catch (err) {
       console.error(err);
       setStep("settings");
-      alert("Failed to generate content. Check your OPENAI_API_KEY.");
+      alert(`Generation failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -173,108 +223,6 @@ export default function ListeningPage() {
     }
   }
 
-  function setupAudio(url: string) {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-    }
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current);
-      blobUrlRef.current = null;
-    }
-
-    let playUrl = url;
-    if (url.startsWith("data:")) {
-      playUrl = dataUrlToBlobUrl(url);
-      blobUrlRef.current = playUrl;
-    }
-
-    const audio = new Audio(playUrl);
-    audioRef.current = audio;
-
-    audio.addEventListener("timeupdate", () => {
-      if (audio.duration) {
-        setProgress((audio.currentTime / audio.duration) * 100);
-        setCurrentTime(audio.currentTime);
-      }
-    });
-    audio.addEventListener("ended", () => {
-      setIsPlaying(false);
-      setProgress(100);
-    });
-    audio.addEventListener("error", (e) => {
-      console.error("Audio playback error:", e);
-      setIsPlaying(false);
-    });
-  }
-
-  useEffect(() => {
-    if (content?.audioUrl && step === "listening") {
-      setupAudio(content.audioUrl);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, step]);
-
-  function togglePlay() {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (isPlaying) {
-      audio.pause();
-      setIsPlaying(false);
-    } else {
-      audio.play()
-        .then(() => setIsPlaying(true))
-        .catch((err) => {
-          console.error("Playback failed:", err);
-          setIsPlaying(false);
-        });
-    }
-  }
-
-  function handleRestart() {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.currentTime = 0;
-    setProgress(0);
-    setCurrentTime(0);
-    audio.play()
-      .then(() => setIsPlaying(true))
-      .catch(console.error);
-  }
-
-  function formatTime(s: number) {
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, "0")}`;
-  }
-
-  function handleAnswer(questionId: number, optionIndex: number) {
-    setUserAnswers((prev) => ({ ...prev, [questionId]: optionIndex }));
-  }
-
-  function calculateScore() {
-    return questions.filter((q) => userAnswers[q.id] === q.correctIndex).length;
-  }
-
-  function handleRetry() {
-    setStep("settings");
-    setContent(null);
-    setQuestions([]);
-    setUserAnswers({});
-    setProgress(0);
-    setCurrentTime(0);
-    setIsPlaying(false);
-    setShowTranscript(false);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current);
-      blobUrlRef.current = null;
-    }
-  }
-
   function handleSelectPresetTopic(topic: string) {
     setSettings((s) => ({ ...s, topic }));
     setUseOtherKeyword(false);
@@ -298,12 +246,38 @@ export default function ListeningPage() {
       setUseOtherKeyword(false);
       setOtherKeywordValue("");
     } else {
-      if (detectedTopics.length === 0) {
-        setSettings((s) => ({ ...s, topic: "" }));
-      }
+      if (detectedTopics.length === 0) setSettings((s) => ({ ...s, topic: "" }));
     }
   }
 
+  function formatTime(s: number) {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  }
+
+  function handleAnswer(questionId: number, optionIndex: number) {
+    setUserAnswers((prev) => ({ ...prev, [questionId]: optionIndex }));
+  }
+
+  function calculateScore() {
+    return questions.filter((q) => userAnswers[q.id] === q.correctIndex).length;
+  }
+
+  function handleRetry() {
+    if (typeof window !== "undefined") window.speechSynthesis.cancel();
+    setStep("settings");
+    setContent(null);
+    setQuestions([]);
+    setUserAnswers({});
+    setCharIndex(0);
+    setIsPlaying(false);
+    setShowTranscript(false);
+  }
+
+  const transcriptLen = content?.transcript.length ?? 1;
+  const progress = Math.min((charIndex / transcriptLen) * 100, 100);
+  const currentTime = Math.floor((charIndex / transcriptLen) * (content?.duration ?? 0));
   const isPresetSelected = !useOtherKeyword && PRESET_TOPICS.includes(settings.topic);
 
   return (
@@ -315,37 +289,28 @@ export default function ListeningPage() {
       />
 
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6 sm:py-8">
-        {/* Step indicator */}
         <div className="flex items-center justify-between mb-6 sm:mb-8">
-          <StepIndicator
-            steps={STEPS}
-            currentStep={STEP_MAP[step]}
-            color="bg-orange-400"
-          />
-          <span className="text-sm text-muted-foreground">
-            {STEPS[STEP_MAP[step]]}
-          </span>
+          <StepIndicator steps={STEPS} currentStep={STEP_MAP[step]} color="bg-orange-400" />
+          <span className="text-sm text-muted-foreground">{STEPS[STEP_MAP[step]]}</span>
         </div>
 
-        {/* Settings screen */}
+        {/* Settings */}
         {step === "settings" && (
           <div className="space-y-6">
             {IS_DEMO && (
               <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
                 <FlaskConical className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <span>
-                  <span className="font-semibold">Demo mode</span> — pre-written
-                  English content loads instantly. Add{" "}
-                  <code className="bg-amber-100 px-1 rounded">OPENAI_API_KEY</code>{" "}
-                  to generate real content in your selected language.
+                  <span className="font-semibold">Demo mode</span> — pre-written English
+                  content loads instantly. Add a{" "}
+                  <code className="bg-amber-100 px-1 rounded">GEMINI_API_KEY</code> to
+                  generate real content in your selected language.
                 </span>
               </div>
             )}
             <div>
               <h1 className="text-2xl font-bold mb-1">Set up your session</h1>
-              <p className="text-muted-foreground text-base">
-                Choose what you want to practice today.
-              </p>
+              <p className="text-muted-foreground text-base">Choose what you want to practice today.</p>
             </div>
 
             <div className="grid gap-5">
@@ -389,11 +354,9 @@ export default function ListeningPage() {
                 </div>
               </div>
 
-              {/* Topic — keyword or image */}
+              {/* Topic */}
               <div className="space-y-3">
                 <Label className="text-base font-medium">Topic</Label>
-
-                {/* Mode toggle */}
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleTopicModeChange("keyword")}
@@ -419,7 +382,6 @@ export default function ListeningPage() {
                   </button>
                 </div>
 
-                {/* Keyword mode */}
                 {topicMode === "keyword" && (
                   <div className="space-y-3">
                     <div className="flex flex-wrap gap-2">
@@ -460,7 +422,6 @@ export default function ListeningPage() {
                   </div>
                 )}
 
-                {/* Image mode */}
                 {topicMode === "image" && (
                   <div className="space-y-3">
                     <input
@@ -476,11 +437,7 @@ export default function ListeningPage() {
                     >
                       {imagePreviewUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={imagePreviewUrl}
-                          alt="Uploaded"
-                          className="max-h-32 rounded-lg object-contain"
-                        />
+                        <img src={imagePreviewUrl} alt="Uploaded" className="max-h-32 rounded-lg object-contain" />
                       ) : (
                         <Upload className="w-8 h-8 text-muted-foreground" />
                       )}
@@ -498,9 +455,7 @@ export default function ListeningPage() {
 
                     {detectedTopics.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground">
-                          Detected topics — tap to select:
-                        </p>
+                        <p className="text-sm text-muted-foreground">Detected topics — tap to select:</p>
                         <div className="flex flex-wrap gap-2">
                           {detectedTopics.map((topic) => (
                             <button
@@ -521,7 +476,6 @@ export default function ListeningPage() {
                   </div>
                 )}
 
-                {/* Active topic display */}
                 {settings.topic && (
                   <p className="text-xs text-muted-foreground">
                     Selected topic:{" "}
@@ -563,7 +517,7 @@ export default function ListeningPage() {
           </div>
         )}
 
-        {/* Loading screen */}
+        {/* Loading */}
         {step === "loading" && (
           <div className="flex flex-col items-center justify-center py-20 gap-6">
             <div className="relative">
@@ -581,7 +535,7 @@ export default function ListeningPage() {
           </div>
         )}
 
-        {/* Listening screen */}
+        {/* Listening */}
         {step === "listening" && content && (
           <div className="space-y-6">
             <div>
@@ -594,21 +548,21 @@ export default function ListeningPage() {
               </p>
             </div>
 
-            {/* Audio Player */}
             <Card className="overflow-hidden">
               <CardContent className="pt-6 pb-6 space-y-5">
                 {IS_DEMO && (
                   <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                     <FlaskConical className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                     <span>
-                      Demo mode — content is pre-written in English regardless of
-                      selected language. Add{" "}
-                      <code className="bg-amber-100 px-0.5 rounded">OPENAI_API_KEY</code>{" "}
-                      for real {settings.language} audio and transcript.
+                      Demo mode — content is pre-written in English. Audio is read by
+                      your device&apos;s built-in voice. Add a{" "}
+                      <code className="bg-amber-100 px-0.5 rounded">GEMINI_API_KEY</code>{" "}
+                      for real {settings.language} content.
                     </span>
                   </div>
                 )}
 
+                {/* Play button */}
                 <div className="flex flex-col items-center gap-4">
                   <button
                     onClick={togglePlay}
@@ -621,21 +575,13 @@ export default function ListeningPage() {
                       <Play className="w-8 h-8 text-white ml-1" />
                     )}
                   </button>
-
                   <div className="text-center">
-                    <span className="text-2xl font-bold tabular-nums">
-                      {formatTime(currentTime)}
-                    </span>
-                    <span className="text-muted-foreground text-sm">
-                      {" "}
-                      / {formatTime(content.duration)}
-                    </span>
+                    <span className="text-2xl font-bold tabular-nums">{formatTime(currentTime)}</span>
+                    <span className="text-muted-foreground text-sm"> / {formatTime(content.duration)}</span>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Progress value={progress} className="h-3 cursor-pointer" />
-                </div>
+                <Progress value={progress} className="h-3" />
 
                 <div className="flex justify-center">
                   <button
@@ -662,18 +608,14 @@ export default function ListeningPage() {
               </CardContent>
             </Card>
 
-            <Button
-              onClick={() => setStep("quiz")}
-              className="w-full h-14 text-base"
-              size="lg"
-            >
+            <Button onClick={() => setStep("quiz")} className="w-full h-14 text-base" size="lg">
               Take the Quiz
               <ChevronRight className="w-5 h-5 ml-1" />
             </Button>
           </div>
         )}
 
-        {/* Quiz screen */}
+        {/* Quiz */}
         {step === "quiz" && (
           <div className="space-y-6">
             <div>
@@ -682,7 +624,6 @@ export default function ListeningPage() {
                 {questions.length} questions · Choose the best answer for each.
               </p>
             </div>
-
             <div className="space-y-5">
               {questions.map((q) => (
                 <Card key={q.id} className="overflow-hidden">
@@ -702,9 +643,7 @@ export default function ListeningPage() {
                             : "hover:bg-muted active:bg-muted border-transparent bg-muted/40"
                         }`}
                       >
-                        <span className="font-semibold mr-2">
-                          {String.fromCharCode(65 + idx)}.
-                        </span>
+                        <span className="font-semibold mr-2">{String.fromCharCode(65 + idx)}.</span>
                         {opt}
                       </button>
                     ))}
@@ -712,7 +651,6 @@ export default function ListeningPage() {
                 </Card>
               ))}
             </div>
-
             <Button
               onClick={() => setStep("results")}
               disabled={Object.keys(userAnswers).length < questions.length}
@@ -725,7 +663,7 @@ export default function ListeningPage() {
           </div>
         )}
 
-        {/* Results screen */}
+        {/* Results */}
         {step === "results" && (
           <div className="space-y-6">
             {(() => {
@@ -739,15 +677,9 @@ export default function ListeningPage() {
                         {score}/{questions.length}
                       </div>
                       <div className="text-2xl font-semibold">
-                        {pct >= 80
-                          ? "Excellent! 🎉"
-                          : pct >= 60
-                          ? "Good Job! 👍"
-                          : "Keep Practicing 💪"}
+                        {pct >= 80 ? "Excellent! 🎉" : pct >= 60 ? "Good Job! 👍" : "Keep Practicing 💪"}
                       </div>
-                      <p className="text-muted-foreground text-base">
-                        {pct}% comprehension score
-                      </p>
+                      <p className="text-muted-foreground text-base">{pct}% comprehension score</p>
                       <Progress value={pct} className="h-3 mt-2" />
                     </CardContent>
                   </Card>
@@ -759,12 +691,7 @@ export default function ListeningPage() {
                       const correct = q.correctIndex;
                       const isCorrect = userAns === correct;
                       return (
-                        <Card
-                          key={q.id}
-                          className={`border-l-4 ${
-                            isCorrect ? "border-l-green-400" : "border-l-red-400"
-                          }`}
-                        >
+                        <Card key={q.id} className={`border-l-4 ${isCorrect ? "border-l-green-400" : "border-l-red-400"}`}>
                           <CardContent className="pt-4 space-y-2">
                             <div className="flex items-start gap-2">
                               {isCorrect ? (
@@ -776,18 +703,12 @@ export default function ListeningPage() {
                             </div>
                             {!isCorrect && (
                               <div className="ml-7 space-y-1 text-sm">
-                                <p className="text-red-500">
-                                  Your answer: {q.options[userAns]}
-                                </p>
-                                <p className="text-green-600">
-                                  Correct: {q.options[correct]}
-                                </p>
+                                <p className="text-red-500">Your answer: {q.options[userAns]}</p>
+                                <p className="text-green-600">Correct: {q.options[correct]}</p>
                               </div>
                             )}
                             {isCorrect && (
-                              <p className="ml-7 text-sm text-green-600">
-                                {q.options[correct]}
-                              </p>
+                              <p className="ml-7 text-sm text-green-600">{q.options[correct]}</p>
                             )}
                           </CardContent>
                         </Card>
@@ -796,11 +717,7 @@ export default function ListeningPage() {
                   </div>
 
                   <div className="flex gap-3 pb-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => setStep("listening")}
-                      className="flex-1 h-12"
-                    >
+                    <Button variant="outline" onClick={() => setStep("listening")} className="flex-1 h-12">
                       Listen Again
                     </Button>
                     <Button onClick={handleRetry} className="flex-1 h-12">
