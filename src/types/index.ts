@@ -33,7 +33,6 @@ export type ListeningStep =
 
 // Speaking module types
 export interface SpeakingSettings {
-  language: Language;
   timeLimit: TimeLimit;
 }
 
@@ -41,6 +40,7 @@ export interface SpeakingFeedback {
   overallScore: number;
   points: FeedbackPoint[];
   summary: string;
+  detectedLanguage?: string;
 }
 
 export interface FeedbackPoint {

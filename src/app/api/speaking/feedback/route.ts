@@ -6,7 +6,6 @@ import { DEMO_FEEDBACK } from "@/lib/mockData";
 const isDemo = () =>
   process.env.NEXT_PUBLIC_DEMO_MODE === "true" || !process.env.GEMINI_API_KEY;
 
-const ALLOWED_LANGUAGES = ["English", "French", "Spanish", "Japanese", "Mandarin", "Vietnamese"];
 const ALLOWED_LEVELS = ["A1", "A2", "B1", "B2"];
 const MAX_TRANSCRIPT_LENGTH = 3000;
 
@@ -16,17 +15,14 @@ export async function POST(req: NextRequest) {
 
   if (isDemo()) {
     await new Promise((r) => setTimeout(r, 1800));
-    return NextResponse.json(DEMO_FEEDBACK);
+    return NextResponse.json({ ...DEMO_FEEDBACK, detectedLanguage: "English" });
   }
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const body = await req.json();
-    const { transcript, language, level } = body;
+    const { transcript, detectedLanguage, level } = body;
 
-    if (!ALLOWED_LANGUAGES.includes(language)) {
-      return NextResponse.json({ error: "Invalid language" }, { status: 400 });
-    }
     if (!ALLOWED_LEVELS.includes(level)) {
       return NextResponse.json({ error: "Invalid level" }, { status: 400 });
     }
@@ -34,15 +30,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Transcript is required" }, { status: 400 });
     }
     const safeTranscript = String(transcript).slice(0, MAX_TRANSCRIPT_LENGTH);
+    const language = detectedLanguage && typeof detectedLanguage === "string"
+      ? detectedLanguage
+      : "the detected language";
 
     const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
-      systemInstruction: `You are a professional language coach analyzing a ${language} conversation by ${level} learners. Provide constructive, encouraging feedback.`,
+      systemInstruction: `You are a professional language coach analyzing a conversation by ${level} learners. Provide constructive, encouraging feedback. If the transcript language differs from what was declared, note it.`,
       generationConfig: { responseMimeType: "application/json" },
     });
 
     const result = await model.generateContent(
-      `Analyze this ${language} conversation. Level: ${level}.
+      `Analyze this conversation. Declared language: ${language}. Level: ${level}.
+Also confirm or correct the actual language spoken in the transcript.
 
 Transcript:
 ${safeTranscript}
@@ -50,6 +50,7 @@ ${safeTranscript}
 Return JSON:
 {
   "overallScore": 78,
+  "detectedLanguage": "French",
   "summary": "One encouraging summary sentence",
   "points": [
     { "category": "grammar", "title": "...", "detail": "...", "positive": true },

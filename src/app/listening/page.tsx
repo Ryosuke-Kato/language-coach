@@ -96,49 +96,132 @@ export default function ListeningPage() {
 
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const keepaliveRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [ttsError, setTtsError] = useState<string | null>(null);
+  const [ttsSupported, setTtsSupported] = useState(true);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && !window.speechSynthesis) {
+      setTtsSupported(false);
+    }
     return () => {
-      if (typeof window !== "undefined") window.speechSynthesis.cancel();
+      if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+      if (keepaliveRef.current) clearInterval(keepaliveRef.current);
     };
   }, []);
 
   // Stop speech when leaving listen step
   useEffect(() => {
     if (step !== "listening" && typeof window !== "undefined") {
-      window.speechSynthesis.cancel();
+      window.speechSynthesis?.cancel();
       setIsPlaying(false);
+      if (keepaliveRef.current) clearInterval(keepaliveRef.current);
     }
   }, [step]);
 
+  function startKeepalive() {
+    // Chromium bug: speechSynthesis silently pauses after ~15 s without user interaction.
+    // Calling pause()+resume() periodically prevents it.
+    if (keepaliveRef.current) clearInterval(keepaliveRef.current);
+    keepaliveRef.current = setInterval(() => {
+      const synth = window.speechSynthesis;
+      if (synth.speaking && !synth.paused) {
+        synth.pause();
+        synth.resume();
+      }
+    }, 10000);
+  }
+
+  function stopKeepalive() {
+    if (keepaliveRef.current) {
+      clearInterval(keepaliveRef.current);
+      keepaliveRef.current = null;
+    }
+  }
+
   function createUtterance(text: string): SpeechSynthesisUtterance {
+    const lang = LANG_BCP47[settings.language] ?? "en-US";
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = LANG_BCP47[settings.language] ?? "en-US";
+    utterance.lang = lang;
     utterance.rate = ["A1", "A2"].includes(settings.level) ? 0.85 : 1.0;
+
+    // Try to find a voice that matches the requested language
+    const voices = window.speechSynthesis.getVoices();
+    const match = voices.find((v) => v.lang.startsWith(lang.split("-")[0]));
+    if (match) utterance.voice = match;
+
     utterance.onboundary = (e) => setCharIndex(e.charIndex);
     utterance.onend = () => {
       setIsPlaying(false);
+      stopKeepalive();
       if (content) setCharIndex(content.transcript.length);
+    };
+    utterance.onerror = (e) => {
+      // "interrupted" fires on cancel() — not a real error
+      if (e.error === "interrupted" || e.error === "canceled") return;
+      console.error("SpeechSynthesis error:", e.error);
+      setIsPlaying(false);
+      stopKeepalive();
+      setTtsError(
+        `Audio playback failed (${e.error}). Your browser may not support ${settings.language} text-to-speech. Use the transcript below instead.`
+      );
     };
     return utterance;
   }
 
+  function speakWithVoiceReady(text: string) {
+    const synth = window.speechSynthesis;
+    const voices = synth.getVoices();
+    if (voices.length > 0) {
+      // Voices already loaded
+      const utterance = createUtterance(text);
+      utteranceRef.current = utterance;
+      synth.speak(utterance);
+      setIsPlaying(true);
+      startKeepalive();
+    } else {
+      // Wait for voices to load (required on first call in some browsers)
+      synth.onvoiceschanged = () => {
+        synth.onvoiceschanged = null;
+        const utterance = createUtterance(text);
+        utteranceRef.current = utterance;
+        synth.speak(utterance);
+        setIsPlaying(true);
+        startKeepalive();
+      };
+      // Fallback: some browsers never fire onvoiceschanged, try anyway after a tick
+      setTimeout(() => {
+        if (!synth.speaking) {
+          const utterance = createUtterance(text);
+          utteranceRef.current = utterance;
+          synth.speak(utterance);
+          setIsPlaying(true);
+          startKeepalive();
+        }
+      }, 300);
+    }
+  }
+
   function togglePlay() {
     if (typeof window === "undefined" || !content) return;
+    if (!ttsSupported) {
+      setTtsError("Text-to-speech is not supported in this browser. Use the transcript below.");
+      return;
+    }
     const synth = window.speechSynthesis;
+    setTtsError(null);
 
     if (isPlaying) {
       synth.pause();
+      stopKeepalive();
       setIsPlaying(false);
     } else {
       if (synth.paused && utteranceRef.current) {
         synth.resume();
         setIsPlaying(true);
+        startKeepalive();
       } else {
-        const utterance = createUtterance(content.transcript);
-        utteranceRef.current = utterance;
-        synth.speak(utterance);
-        setIsPlaying(true);
+        speakWithVoiceReady(content.transcript);
       }
     }
   }
@@ -147,14 +230,11 @@ export default function ListeningPage() {
     if (typeof window === "undefined" || !content) return;
     const synth = window.speechSynthesis;
     synth.cancel();
+    stopKeepalive();
     setCharIndex(0);
     setIsPlaying(false);
-    setTimeout(() => {
-      const utterance = createUtterance(content.transcript);
-      utteranceRef.current = utterance;
-      synth.speak(utterance);
-      setIsPlaying(true);
-    }, 50);
+    setTtsError(null);
+    setTimeout(() => speakWithVoiceReady(content.transcript), 100);
   }
 
   async function handleGenerate() {
@@ -582,6 +662,13 @@ export default function ListeningPage() {
                 </div>
 
                 <Progress value={progress} className="h-3" />
+
+                {ttsError && (
+                  <div className="flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    <span className="shrink-0 mt-0.5">⚠️</span>
+                    <span>{ttsError}</span>
+                  </div>
+                )}
 
                 <div className="flex justify-center">
                   <button

@@ -21,7 +21,6 @@ import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { StepIndicator } from "@/components/shared/StepIndicator";
 import { RecordingCharacter } from "@/components/speaking/RecordingCharacter";
 import type {
-  Language,
   Level,
   TimeLimit,
   SpeakingSettings,
@@ -30,7 +29,6 @@ import type {
   SpeakingStep,
 } from "@/types";
 
-const LANGUAGES: Language[] = ["English", "French", "Spanish", "Japanese", "Mandarin", "Vietnamese"];
 const LEVELS: Level[] = ["A1", "A2", "B1", "B2"];
 const TIME_LIMITS: TimeLimit[] = [1, 3];
 
@@ -61,7 +59,6 @@ const CATEGORY_EMOJI: Record<string, string> = {
 export default function SpeakingPage() {
   const [step, setStep] = useState<SpeakingStep>("settings");
   const [settings, setSettings] = useState<SpeakingSettings>({
-    language: "English",
     timeLimit: 1,
   });
   const [level, setLevel] = useState<Level>("B1");
@@ -152,15 +149,17 @@ export default function SpeakingPage() {
     try {
       const formData = new FormData();
       formData.append("audio", blob, "recording.webm");
-      formData.append("language", settings.language);
 
       const tRes = await fetch("/api/speaking/transcribe", {
         method: "POST",
         body: formData,
       });
 
-      if (!tRes.ok) throw new Error("Transcription failed");
-      const { transcript } = await tRes.json();
+      if (!tRes.ok) {
+        const tErr = await tRes.json().catch(() => ({}));
+        throw new Error(tErr.error ?? "Transcription failed");
+      }
+      const { transcript, detectedLanguage } = await tRes.json();
 
       setProcessingMsg("Analyzing your language skills...");
 
@@ -169,18 +168,22 @@ export default function SpeakingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           transcript,
-          language: settings.language,
+          detectedLanguage,
           level,
         }),
       });
 
-      if (!fRes.ok) throw new Error("Feedback failed");
+      if (!fRes.ok) {
+        const fErr = await fRes.json().catch(() => ({}));
+        throw new Error(fErr.error ?? "Feedback failed");
+      }
       const fData = await fRes.json();
 
       setFeedback({
         overallScore: fData.overallScore,
         summary: fData.summary,
         points: fData.points ?? [],
+        detectedLanguage: fData.detectedLanguage ?? detectedLanguage,
       });
       setQuizQuestions(fData.quizQuestions ?? []);
       setStep("feedback");
@@ -188,7 +191,7 @@ export default function SpeakingPage() {
       console.error(err);
       setStep("recording");
       setIsRecording(false);
-      alert("Failed to process recording. Check your OPENAI_API_KEY.");
+      alert(`Failed to process recording: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -280,26 +283,6 @@ export default function SpeakingPage() {
             </div>
 
             <div className="grid gap-5">
-              {/* Language */}
-              <div className="space-y-3">
-                <Label className="text-base font-medium">Language you are speaking</Label>
-                <div className="flex flex-wrap gap-2">
-                  {LANGUAGES.map((lang) => (
-                    <button
-                      key={lang}
-                      onClick={() => setSettings((s) => ({ ...s, language: lang }))}
-                      className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
-                        settings.language === lang
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted hover:bg-accent active:bg-accent"
-                      }`}
-                    >
-                      {lang}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Level */}
               <div className="space-y-3">
                 <Label className="text-base font-medium">Your Level</Label>
@@ -369,8 +352,7 @@ export default function SpeakingPage() {
                 {isRecording ? "Conversation in Progress" : "Get Ready to Speak"}
               </h1>
               <p className="text-muted-foreground text-sm px-4">
-                {settings.timeLimit} minute{settings.timeLimit > 1 ? "s" : ""} ·{" "}
-                {settings.language}
+                {settings.timeLimit} minute{settings.timeLimit > 1 ? "s" : ""} · language auto-detected
               </p>
             </div>
 
@@ -453,7 +435,7 @@ export default function SpeakingPage() {
             <div className="text-center space-y-1">
               <p className="font-semibold text-lg">{processingMsg}</p>
               <p className="text-muted-foreground text-sm">
-                Analyzing your {settings.language} conversation…
+                Analyzing your conversation…
               </p>
             </div>
           </div>
@@ -465,6 +447,11 @@ export default function SpeakingPage() {
             <div className="text-center space-y-2">
               <div className="text-5xl">🌟</div>
               <h1 className="text-2xl font-bold">Great Conversation!</h1>
+              {feedback.detectedLanguage && (
+                <p className="text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-full inline-block px-4 py-1">
+                  Detected language: {feedback.detectedLanguage}
+                </p>
+              )}
               <p className="text-muted-foreground text-base">{feedback.summary}</p>
             </div>
 
